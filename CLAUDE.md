@@ -1,74 +1,81 @@
 ## Bookmark Vault
 
-A Next.js 14 bookmark manager using App Router, TailwindCSS, and TypeScript.
+A bookmark manager built with Next.js App Router, TailwindCSS, and TypeScript. Data persists in `localStorage` (client-side only).
 
-## Tech Stack
+## Stack
 
--Next.js 14 with App Router
--TailwindCSS for styling
--TypeScript strict mode
--localStorage for persistence (client-side only)
+- Next.js (App Router)
+- React 19
+- TypeScript (strict)
+- TailwindCSS
+- Zod (validation)
+- `localStorage` (persistence)
+- Framer Motion (Modal/BottomSheet animation)
+- Sonner (toasts)
 
-## Code Standards
+## Conventions
 
--Use functional components only
--All components using localStorage must be client components ("use client")
--Use Zod for validation
--Keep components under 100 lines
+- Functional components only.
+- Any component/hook that touches `window`, `document`, or `localStorage` must be a client component (`"use client"`).
+- Prefer small components (< 100 lines): split UI into primitives + feature modules.
+- Use UI primitives from `components/ui` (and the barrel `@/components/ui` where possible).
 
-## File Structure
+## Key Hooks (What They Do)
 
+- `hooks/useBookmarks.ts`
+  - Source of truth for bookmark state (Context + reducer).
+  - Loads bookmarks on the client after mount to avoid hydration mismatch.
+  - Exposes CRUD (`addBookmark`, `updateBookmark`, `deleteBookmark`) and `importBookmarks`.
+  - Handles optimistic UI + error toasts.
+
+- `hooks/useBookmarkForm.ts`
+  - Form state + Zod validation for create/edit.
+  - Returns input values, errors, and a submit handler used by the modal.
+
+- `hooks/useImportBookmarks.ts`
+  - Import flow state machine: reads JSON file text, validates with `BookmarkSchema`, shows preview.
+  - Supports merge/replace + duplicate handling.
+
+- `hooks/useKeyboardShortcuts.ts`
+  - Keyboard shortcuts for focusing inputs, opening/closing modals, and clearing search.
+
+## Happy Path (User Flow)
+
+1. Click **Add bookmark** → modal opens → fill title/url/description/tags → **Save** → toast confirms.
+2. Use **Search**, **Tag**, and **Sort** controls to filter the list.
+3. Edit or delete a bookmark from the list (edit modal / delete sheet).
+4. Click the **Import/Export** icon → modal opens:
+   - Export downloads `bookmarks-YYYY-MM-DD.json`.
+   - Import selects a JSON file → preview → choose mode/options → import.
+
+## Folder Structure
+
+```text
+app/
+  layout.tsx              # Providers (e.g. ToastProvider)
+  page.tsx                # Home: toolbar + list + modals
+components/
+  bookmarks/              # Feature UI modules
+    BookmarkFormModal.tsx
+    BookmarkToolbar.tsx
+    ImportExportModal.tsx
+    ...
+  ui/                     # UI primitives (+ `components/ui/index.ts` barrel)
+    Button.tsx
+    Input.tsx
+    Modal.tsx
+    Select.tsx
+    ToastProvider.tsx
+    ...
+hooks/                    # State + behaviors
+  useBookmarks.ts
+  useBookmarkForm.ts
+  useImportBookmarks.ts
+  useKeyboardShortcuts.ts
+lib/                      # Storage + validation + types
+  storage.ts
+  validation.ts
+  types.ts
+public/
+docs/
 ```
-bookmark-vault/
-├── app/                    # Next.js App Router
-│   ├── favicon.ico
-│   ├── globals.css         # Global styles + Tailwind
-│   ├── layout.tsx          # Root layout with header
-│   └── page.tsx            # Home page
-├── components/             # Reusable UI components (to create)
-├── lib/                    # Utilities and types (to create)
-├── hooks/                  # Custom React hooks (to create)
-├── public/                 # Static assets
-│   ├── file.svg
-│   ├── globe.svg
-│   ├── next.svg
-│   ├── vercel.svg
-│   └── window.svg
-├── .gitignore
-├── CLAUDE.md               # Project instructions
-├── eslint.config.mjs       # ESLint configuration
-├── next.config.ts          # Next.js configuration
-├── next-env.d.ts           # Next.js TypeScript declarations
-├── package.json            # Dependencies and scripts
-├── postcss.config.mjs      # PostCSS configuration
-├── tailwind.config.ts      # TailwindCSS configuration
-└── tsconfig.json           # TypeScript configuration (strict mode)
-```
-
-## Features
-
-The app allows users to:
-- Save new bookmarks with title, URL, description, and tags
-- View all saved bookmarks in a list
-- Search and filter bookmarks
-- Delete bookmarks
-- Persist data in localStorage (client-side only)
-
-## Bookmark Properties
-
-Each bookmark contains:
-- Title
-- URL
-- Description
-- Tags
-
-## Project Scope
-
-This is a 4-5 hour project that covers full-stack patterns (components, state, storage) without database setup overhead. The scope includes:
-- Component scaffolding
-- Iteration and refinement
-- TailwindCSS styling
-- Testing and refactoring
-- Simple responsive layout
-
-The scope is focused: CRUD operations for one entity (bookmarks). Nothing more.
