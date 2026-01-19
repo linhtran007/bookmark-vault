@@ -31,7 +31,7 @@ export const demoBookmarks: Omit<Bookmark, 'id' | 'createdAt'>[] = [
     url: 'https://tailwindcss.com',
     description: 'Rapidly build modern websites without ever leaving your HTML. Utility-first CSS framework.',
     tags: ['css', 'styling', 'framework'],
-    color: 'cyan',
+    color: 'green',
   },
   {
     title: 'TypeScript Handbook',

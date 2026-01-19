@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -20,17 +21,19 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
 }
 
-export default function Button({
-  variant = "primary",
-  className,
-  type = "button",
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      type={type}
-      className={cn(baseStyles, variantStyles[variant], className)}
-      {...props}
-    />
-  );
-}
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ variant = "primary", className, type = "button", ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        type={type}
+        className={cn(baseStyles, variantStyles[variant], className)}
+        {...props}
+      />
+    );
+  },
+);
+
+Button.displayName = "Button";
+
+export default Button;

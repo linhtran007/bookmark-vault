@@ -39,9 +39,7 @@ const tagsSchema = z.array(z.string().min(1).max(50)).max(20, {
 /**
  * Color validation - must be one of the predefined colors
  */
-const colorSchema = z.enum(BOOKMARK_COLORS, {
-  errorMap: () => ({ message: 'Invalid color selected' }),
-});
+const colorSchema = z.enum(BOOKMARK_COLORS);
 
 /**
  * Full bookmark schema (with id and createdAt)
