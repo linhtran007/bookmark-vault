@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { BookmarkSchema } from "@/lib/validation";
+import { PERSONAL_SPACE_ID, getSpaces } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
 
 export type ImportMode = "merge" | "replace";
@@ -44,10 +45,18 @@ const parseBookmarks = (text: string) => {
   const valid: Bookmark[] = [];
   let invalidCount = 0;
 
+  const validSpaceIds = new Set(getSpaces().map((s) => s.id));
+
   parsed.forEach((item) => {
     const result = BookmarkSchema.safeParse(item);
     if (result.success) {
-      valid.push(result.data);
+      const bookmark = result.data;
+      const spaceId = bookmark.spaceId;
+      valid.push({
+        ...bookmark,
+        spaceId:
+          spaceId && validSpaceIds.has(spaceId) ? spaceId : PERSONAL_SPACE_ID,
+      });
     } else {
       invalidCount += 1;
     }

@@ -71,6 +71,7 @@ interface BookmarksContextValue {
   bulkDelete: (ids: string[]) => Promise<{ success: true } | { success: false; error: string }>;
   updateBookmark: (bookmark: Bookmark) => UpdateBookmarkResult;
   importBookmarks: (bookmarks: Bookmark[]) => Promise<ImportResult>;
+  moveBookmarksToSpace: (fromSpaceId: string, toSpaceId: string) => { success: true } | { success: false; error: string };
   fetchPreview: (id: string, url: string) => Promise<FetchPreviewResult>;
   refreshPreview: (id: string, url: string) => Promise<FetchPreviewResult>;
   clearError: () => void;
@@ -483,6 +484,39 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
     [simulateError]
   );
 
+  const moveBookmarksToSpace = useCallback(
+    (
+      fromSpaceId: string,
+      toSpaceId: string
+    ): { success: true } | { success: false; error: string } => {
+      try {
+        const updated = state.bookmarks.map((bookmark) =>
+          bookmark.spaceId === fromSpaceId
+            ? { ...bookmark, spaceId: toSpaceId }
+            : bookmark
+        );
+
+        const stored = setBookmarks(updated);
+        if (!stored) {
+          const error =
+            "Unable to update bookmarks. Please check your browser storage settings.";
+          dispatch({ type: "IMPORT_BOOKMARKS_ERROR", error });
+          toast.error(error);
+          return { success: false, error };
+        }
+
+        dispatch({ type: "IMPORT_BOOKMARKS_SUCCESS", bookmarks: updated });
+        return { success: true };
+      } catch {
+        const error = "Unable to update bookmarks.";
+        dispatch({ type: "IMPORT_BOOKMARKS_ERROR", error });
+        toast.error(error);
+        return { success: false, error };
+      }
+    },
+    [state.bookmarks]
+  );
+
   const fetchPreview = useCallback(
     async (id: string, url: string): Promise<FetchPreviewResult> => {
       const cached = getPreviewFromStorage(id);
@@ -570,6 +604,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
       bulkDelete,
       updateBookmark,
       importBookmarks,
+      moveBookmarksToSpace,
       fetchPreview,
       refreshPreview,
       clearError,
@@ -583,6 +618,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
       bulkDelete,
       updateBookmark,
       importBookmarks,
+      moveBookmarksToSpace,
       fetchPreview,
       refreshPreview,
       clearError,
@@ -629,6 +665,7 @@ export function useBookmarks(searchTerm: string = "") {
     bulkDelete: context.bulkDelete,
     updateBookmark: context.updateBookmark,
     importBookmarks: context.importBookmarks,
+    moveBookmarksToSpace: context.moveBookmarksToSpace,
     fetchPreview: context.fetchPreview,
     refreshPreview: context.refreshPreview,
   };

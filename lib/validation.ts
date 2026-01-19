@@ -53,6 +53,7 @@ export const BookmarkSchema = z.object({
   }).optional(),
   tags: tagsSchema,
   color: colorSchema.optional(),
+  spaceId: z.string().min(1).optional(),
   createdAt: z.string().datetime(),
 });
 

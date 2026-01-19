@@ -10,6 +10,7 @@ import { useBookmarkListState } from "@/components/bookmarks/useBookmarkListStat
 import { useBookmarkSelection } from "@/hooks/useBookmarkSelection";
 import { useBookmarks } from "@/hooks/useBookmarks";
 interface BookmarkListProps {
+  selectedSpaceId: "all" | string;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   selectedTag: string;
@@ -22,6 +23,7 @@ interface BookmarkListProps {
 }
 
 export default function BookmarkList({
+  selectedSpaceId,
   searchQuery,
   onSearchChange,
   selectedTag,
@@ -54,6 +56,7 @@ export default function BookmarkList({
     handleCloseDelete,
     handleCloseEdit,
   } = useBookmarkListState({
+    selectedSpaceId,
     searchQuery,
     onSearchChange,
     selectedTag,

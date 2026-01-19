@@ -28,6 +28,7 @@
 | Pinned view fields | `spaceId + searchQuery + tag + sortKey` | Keep pinned views simple; status is out-of-scope |
 | UI layout | Left sidebar | Best discoverability + “dashboard” feel |
 | Testing | BE tests only (Jest), no FE tests, no E2E | Keep scope focused and fast |
+| Pinned view duplicate name | Block duplicates per-space | Avoid silent overwrites; simple UX |
 
 ---
 

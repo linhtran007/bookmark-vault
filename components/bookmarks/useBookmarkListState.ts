@@ -2,10 +2,17 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { filterByTag, getUniqueTags, sortBookmarks, SortKey } from "@/lib/bookmarks";
+import {
+  filterByTag,
+  getUniqueTags,
+  sortBookmarks,
+  SortKey,
+} from "@/lib/bookmarks";
+import { PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
 
 interface UseBookmarkListStateProps {
+  selectedSpaceId: "all" | string;
   searchQuery: string;
   onSearchChange: (value: string) => void;
   selectedTag: string;
@@ -14,7 +21,12 @@ interface UseBookmarkListStateProps {
   onSortChange: (value: SortKey) => void;
 }
 
+function getBookmarkSpaceId(bookmark: Bookmark): string {
+  return bookmark.spaceId ?? PERSONAL_SPACE_ID;
+}
+
 export function useBookmarkListState({
+  selectedSpaceId,
   searchQuery,
   onSearchChange,
   selectedTag,
@@ -34,14 +46,33 @@ export function useBookmarkListState({
     fetchPreview,
     refreshPreview,
   } = useBookmarks(searchQuery);
+
   const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null);
   const [editTarget, setEditTarget] = useState<Bookmark | null>(null);
 
-  const tagOptions = useMemo(() => getUniqueTags(allBookmarks), [allBookmarks]);
+  const allBookmarksInScope = useMemo(() => {
+    if (selectedSpaceId === "all") return allBookmarks;
+    return allBookmarks.filter(
+      (bookmark) => getBookmarkSpaceId(bookmark) === selectedSpaceId
+    );
+  }, [allBookmarks, selectedSpaceId]);
+
+  const bookmarksInScope = useMemo(() => {
+    if (selectedSpaceId === "all") return bookmarks;
+    return bookmarks.filter(
+      (bookmark) => getBookmarkSpaceId(bookmark) === selectedSpaceId
+    );
+  }, [bookmarks, selectedSpaceId]);
+
+  const tagOptions = useMemo(
+    () => getUniqueTags(allBookmarksInScope),
+    [allBookmarksInScope]
+  );
+
   const filteredBookmarks = useMemo(() => {
-    const tagged = filterByTag(bookmarks, selectedTag);
+    const tagged = filterByTag(bookmarksInScope, selectedTag);
     return sortBookmarks(tagged, sortKey);
-  }, [bookmarks, selectedTag, sortKey]);
+  }, [bookmarksInScope, selectedTag, sortKey]);
 
   const handleSearchChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,35 +81,42 @@ export function useBookmarkListState({
     },
     [onSearchChange, errorMessage, clearError]
   );
+
   const handleClearSearch = useCallback(() => {
     onSearchChange("");
     if (errorMessage) clearError();
   }, [onSearchChange, errorMessage, clearError]);
+
   const handleTagChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) => onTagChange(event.target.value),
     [onTagChange]
   );
+
   const handleSortChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>) =>
       onSortChange(event.target.value as SortKey),
     [onSortChange]
   );
+
   const handleDeleteRequest = useCallback((bookmark: Bookmark) => {
     setDeleteTarget(bookmark);
   }, []);
+
   const handleEditRequest = useCallback((bookmark: Bookmark) => {
     setEditTarget(bookmark);
   }, []);
+
   const handleConfirmDelete = useCallback(() => {
     if (deleteTarget) deleteBookmark(deleteTarget.id);
     setDeleteTarget(null);
   }, [deleteBookmark, deleteTarget]);
+
   const handleCloseDelete = useCallback(() => setDeleteTarget(null), []);
   const handleCloseEdit = useCallback(() => setEditTarget(null), []);
 
   return {
     errorMessage,
-    allBookmarksCount: allBookmarks.length,
+    allBookmarksCount: allBookmarksInScope.length,
     filteredBookmarks,
     tagOptions,
     pendingAdds,

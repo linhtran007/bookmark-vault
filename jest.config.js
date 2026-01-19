@@ -9,6 +9,7 @@ const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^@voc/(.*)$': '<rootDir>/$1',
   },
   transformIgnorePatterns: ["/node_modules/(?!(uuid)/)"],
 };

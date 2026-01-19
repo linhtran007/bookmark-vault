@@ -12,11 +12,15 @@ import { SortKey } from "@/lib/bookmarks";
 import { BookmarksProvider } from "@/hooks/useBookmarks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { runOnboardingMigration } from "@/lib/migration";
+import { runSpacesMigration } from "@/lib/spacesMigration";
+import SpacesSidebar, { type SpaceSelection } from "@/components/spaces/SpacesSidebar";
+import type { PinnedView } from "@/lib/types";
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("newest");
+  const [selectedSpaceId, setSelectedSpaceId] = useState<SpaceSelection>("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -26,6 +30,7 @@ export default function Home() {
   // Run migration on mount
   useEffect(() => {
     runOnboardingMigration();
+    runSpacesMigration();
   }, []);
 
   useKeyboardShortcuts({
@@ -38,6 +43,13 @@ export default function Home() {
   });
 
   const handleAddBookmark = () => setIsFormOpen(true);
+
+  const handleApplyPinnedView = (view: PinnedView) => {
+    setSelectedSpaceId(view.spaceId as SpaceSelection);
+    setSearchQuery(view.searchQuery);
+    setSelectedTag(view.tag);
+    setSortKey(view.sortKey);
+  };
 
   return (
     <ErrorBoundary>
@@ -64,26 +76,41 @@ export default function Home() {
               <KeyboardShortcutsHelp position="bottom" />
             </div>
           </div>
-          <BookmarkFormModal
-            isOpen={isFormOpen}
-            onClose={() => setIsFormOpen(false)}
-            titleInputRef={titleInputRef}
-          />
-          <ImportExportModal
-            isOpen={isImportExportOpen}
-            onClose={() => setIsImportExportOpen(false)}
-          />
-          <BookmarkList
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            selectedTag={selectedTag}
-            onTagChange={setSelectedTag}
-            sortKey={sortKey}
-            onSortChange={setSortKey}
-            searchInputRef={searchInputRef}
-            cardsContainerRef={cardsContainerRef}
-            onAddBookmark={handleAddBookmark}
-          />
+
+          <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
+            <SpacesSidebar
+              selectedSpaceId={selectedSpaceId}
+              onSelectSpaceId={setSelectedSpaceId}
+              searchQuery={searchQuery}
+              selectedTag={selectedTag}
+              sortKey={sortKey}
+              onApplyPinnedView={handleApplyPinnedView}
+            />
+
+            <div className="min-w-0">
+              <BookmarkFormModal
+                isOpen={isFormOpen}
+                onClose={() => setIsFormOpen(false)}
+                titleInputRef={titleInputRef}
+              />
+              <ImportExportModal
+                isOpen={isImportExportOpen}
+                onClose={() => setIsImportExportOpen(false)}
+              />
+              <BookmarkList
+                selectedSpaceId={selectedSpaceId}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                selectedTag={selectedTag}
+                onTagChange={setSelectedTag}
+                sortKey={sortKey}
+                onSortChange={setSortKey}
+                searchInputRef={searchInputRef}
+                cardsContainerRef={cardsContainerRef}
+                onAddBookmark={handleAddBookmark}
+              />
+            </div>
+          </div>
         </div>
       </BookmarksProvider>
     </ErrorBoundary>
