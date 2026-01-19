@@ -22,6 +22,7 @@ interface BookmarkCardProps {
   bookmark: Bookmark;
   onDelete: (bookmark: Bookmark) => void;
   onEdit: (bookmark: Bookmark) => void;
+  onTagClick?: (tag: string) => void;
   isPendingAdd: boolean;
   isPendingDelete: boolean;
   isSelected?: boolean;
@@ -71,6 +72,7 @@ export default function BookmarkCard({
   bookmark,
   onDelete,
   onEdit,
+  onTagClick,
   isPendingAdd,
   isPendingDelete,
   isSelected = false,
@@ -331,7 +333,7 @@ export default function BookmarkCard({
         </p>
       )}
 
-      <BookmarkTags tags={bookmark.tags} />
+      <BookmarkTags tags={bookmark.tags} onTagClick={onTagClick} />
     </Card>
   );
 }

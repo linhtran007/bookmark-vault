@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Modal } from "@/components/ui";
 import BookmarkFormFields from "@/components/BookmarkFormFields";
 import { useBookmarkForm } from "@/hooks/useBookmarkForm";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { getUniqueTags } from "@/lib/bookmarks";
 import { getSpaces, PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
 
@@ -41,6 +43,7 @@ export default function BookmarkFormModal({
     onSuccess: onClose,
   });
 
+  const { allBookmarks } = useBookmarks();
   const [spaceOptions, setSpaceOptions] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
@@ -58,6 +61,8 @@ export default function BookmarkFormModal({
     return [{ value: PERSONAL_SPACE_ID, label: "Personal" }];
   }, [spaceOptions]);
 
+  const tagSuggestions = useMemo(() => getUniqueTags(allBookmarks), [allBookmarks]);
+
   const title = mode === "edit" ? "Edit Bookmark" : "Add Bookmark";
   const submitLabel = mode === "edit" ? "Save changes" : "Add Bookmark";
 
@@ -74,6 +79,7 @@ export default function BookmarkFormModal({
           titleInputRef={titleInputRef}
           registerField={registerField}
           spaceOptions={safeSpaceOptions}
+          tagSuggestions={tagSuggestions}
         />
         {errorMessage && (
           <p className="text-sm text-red-600" role="alert">{errorMessage}</p>

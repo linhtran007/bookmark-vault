@@ -5,6 +5,8 @@ import BookmarkFormFields from "@/components/BookmarkFormFields";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { useBookmarkForm } from "@/hooks/useBookmarkForm";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { getUniqueTags } from "@/lib/bookmarks";
 import { getSpaces, PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import type { CreateBookmarkInput } from "@/lib/validation";
 
@@ -37,6 +39,8 @@ export default function AddBookmarkForm({
     };
   }, [clearForm, clearFormRef]);
 
+  const { allBookmarks } = useBookmarks();
+
   const spaceOptions = useMemo(() => {
     const spaces = getSpaces();
     if (spaces.length > 0) {
@@ -44,6 +48,8 @@ export default function AddBookmarkForm({
     }
     return [{ value: PERSONAL_SPACE_ID, label: "Personal" }];
   }, []);
+
+  const tagSuggestions = useMemo(() => getUniqueTags(allBookmarks), [allBookmarks]);
 
   return (
     <Card>
@@ -58,6 +64,7 @@ export default function AddBookmarkForm({
           onChange={handleChange}
           titleInputRef={titleInputRef}
           spaceOptions={spaceOptions}
+          tagSuggestions={tagSuggestions}
         />
 
         <Button type="submit" disabled={isLoading} className="w-full">

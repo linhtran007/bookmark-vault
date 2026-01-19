@@ -1,6 +1,7 @@
 import { BOOKMARK_COLORS } from "@/lib/types";
 import BookmarkFormField from "@/components/BookmarkFormField";
 import BookmarkFormSelect from "@/components/BookmarkFormSelect";
+import TagInput from "@/components/bookmarks/TagInput";
 import type {
   BookmarkFormErrors,
   BookmarkFormState,
@@ -17,6 +18,7 @@ interface BookmarkFormFieldsProps {
   titleInputRef?: React.RefObject<HTMLInputElement | null>;
   registerField?: (fieldName: keyof BookmarkFormState, element: HTMLInputElement | null) => void;
   spaceOptions: { value: string; label: string }[];
+  tagSuggestions: string[];
 }
 
 const colorOptions = BOOKMARK_COLORS.map((color) => ({
@@ -31,6 +33,7 @@ export default function BookmarkFormFields({
   titleInputRef,
   registerField,
   spaceOptions,
+  tagSuggestions,
 }: BookmarkFormFieldsProps) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -73,14 +76,18 @@ export default function BookmarkFormFields({
         containerClassName="sm:col-span-1"
       />
 
-      <BookmarkFormField
+      <TagInput
         id="tags"
         name="tags"
         label="Tags"
         value={form.tags}
-        onChange={onChange}
+        onChangeValue={(next) =>
+          onChange({
+            target: { name: "tags", value: next },
+          } as unknown as React.ChangeEvent<HTMLInputElement>)
+        }
         error={errors.tags}
-        placeholder="react, javascript, tutorial (comma-separated)"
+        suggestions={tagSuggestions}
         registerField={registerField}
         containerClassName="sm:col-span-1"
       />

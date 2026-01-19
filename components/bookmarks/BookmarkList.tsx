@@ -99,6 +99,7 @@ export default function BookmarkList({
             bookmark={bookmark}
             onDelete={handleDeleteRequest}
             onEdit={handleEditRequest}
+            onTagClick={(tag) => onTagChange(tag)}
             isPendingAdd={pendingAdds.has(bookmark.id)}
             isPendingDelete={pendingDeletes.has(bookmark.id)}
             isSelected={isSelected(bookmark.id)}
@@ -117,6 +118,7 @@ export default function BookmarkList({
       toggle,
       fetchPreview,
       refreshPreview,
+      onTagChange,
     ]
   );
 
