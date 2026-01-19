@@ -1,8 +1,10 @@
 "use client";
 
 import BookmarkToolbar from "@/components/bookmarks/BookmarkToolbar";
+import FilterChips from "@/components/bookmarks/FilterChips";
 import EmptyState from "@/components/ui/EmptyState";
 import { SortKey } from "@/lib/bookmarks";
+import { useComprehensiveClearFilters } from "@/hooks/useComprehensiveClearFilters";
 
 interface BookmarkListViewProps {
   searchQuery: string;
@@ -42,12 +44,22 @@ export default function BookmarkListView({
   const isEmpty = totalCount === 0;
   const isFilteredEmpty = !isEmpty && resultsCount === 0;
 
+  // Hook to clear all filters at once
+  const { clearAllFilters } = useComprehensiveClearFilters({
+    onClearSearch,
+    onClearTag: () => onTagChange({ target: { value: "all" } } as React.ChangeEvent<HTMLSelectElement>),
+    onResetSort: () => onSortChange({ target: { value: "newest" } } as React.ChangeEvent<HTMLSelectElement>),
+  });
+
+  const hasActiveFilters = searchQuery || selectedTag !== "all" || sortKey !== "newest";
+
   return (
     <div className="space-y-6">
-      <BookmarkToolbar
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <BookmarkToolbar
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
-        onClearSearch={onClearSearch}
+        onClearSearch={clearAllFilters}
         tagOptions={tagOptions}
         selectedTag={selectedTag}
         onTagChange={onTagChange}
@@ -57,20 +69,31 @@ export default function BookmarkListView({
         totalCount={totalCount}
         searchInputRef={searchInputRef}
       />
+      </div>
+      {hasActiveFilters && (
+        <FilterChips
+          searchQuery={searchQuery}
+          selectedTag={selectedTag}
+          sortKey={sortKey}
+          onClearSearch={clearAllFilters}
+          onClearTag={() => onTagChange({ target: { value: "all" } } as React.ChangeEvent<HTMLSelectElement>)}
+          onResetSort={() => onSortChange({ target: { value: "newest" } } as React.ChangeEvent<HTMLSelectElement>)}
+        />
+      )}
       {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
       {isEmpty ? (
         <EmptyState
           title="No bookmarks yet"
-          description="Add your first bookmark to get started. You can organize them with tags and colors."
+          description="Add your first bookmark to get started."
           actionLabel="Add your first bookmark"
           onAction={onAddBookmark}
         />
       ) : isFilteredEmpty ? (
         <EmptyState
           title="No results found"
-          description="Try adjusting your search or filters."
-          actionLabel="Clear filters"
-          onAction={onClearSearch}
+          description="No bookmarks match your filters. Try different filters or clear all."
+          actionLabel="Clear all filters"
+          onAction={clearAllFilters}
         />
       ) : (
         <div

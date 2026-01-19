@@ -74,6 +74,12 @@ export function deleteBookmark(id: string): void {
   saveBookmarks(filtered);
 }
 
+export function deleteBookmarks(ids: string[]): void {
+  const bookmarks = loadBookmarks();
+  const filtered = bookmarks.filter((b) => !ids.includes(b.id));
+  saveBookmarks(filtered);
+}
+
 export function updateBookmark(bookmark: Bookmark): Bookmark | null {
   const bookmarks = loadBookmarks();
   const updated = bookmarks.map((item) =>

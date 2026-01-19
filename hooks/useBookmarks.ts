@@ -12,6 +12,7 @@ import {
 import {
   getBookmarks,
   deleteBookmark as deleteFromStorage,
+  deleteBookmarks as deleteManyFromStorage,
   addBookmark as addToStorage,
   updateBookmark as updateInStorage,
   setBookmarks,
@@ -36,6 +37,9 @@ type Action =
   | { type: "DELETE_BOOKMARK"; id: string }
   | { type: "DELETE_BOOKMARK_SUCCESS"; id: string }
   | { type: "DELETE_BOOKMARK_ERROR"; id: string; error: string }
+  | { type: "BULK_DELETE_BOOKMARKS"; ids: string[] }
+  | { type: "BULK_DELETE_BOOKMARKS_SUCCESS"; ids: string[] }
+  | { type: "BULK_DELETE_BOOKMARKS_ERROR"; ids: string[]; error: string }
   | { type: "UPDATE_BOOKMARK_SUCCESS"; bookmark: Bookmark }
   | { type: "UPDATE_BOOKMARK_ERROR"; error: string }
   | { type: "IMPORT_BOOKMARKS_SUCCESS"; bookmarks: Bookmark[] }
@@ -55,6 +59,7 @@ interface BookmarksContextValue {
   setSimulateError: (value: boolean) => void;
   addBookmark: (bookmark: Omit<Bookmark, "id" | "createdAt">) => AddBookmarkResult;
   deleteBookmark: (id: string) => DeleteBookmarkResult;
+  bulkDelete: (ids: string[]) => Promise<{ success: true } | { success: false; error: string }>;
   updateBookmark: (bookmark: Bookmark) => UpdateBookmarkResult;
   importBookmarks: (bookmarks: Bookmark[]) => Promise<ImportResult>;
   clearError: () => void;
@@ -151,6 +156,36 @@ function reducer(state: BookmarksState, action: Action): BookmarksState {
       return {
         ...state,
         pendingDeletes: removeFromSet(state.pendingDeletes, action.id),
+        error: action.error,
+      };
+    case "BULK_DELETE_BOOKMARKS":
+      return {
+        ...state,
+        pendingDeletes: action.ids.reduce(
+          (set, id) => addToSet(set, id),
+          state.pendingDeletes
+        ),
+        error: null,
+      };
+    case "BULK_DELETE_BOOKMARKS_SUCCESS":
+      return {
+        ...state,
+        bookmarks: state.bookmarks.filter(
+          (bookmark) => !action.ids.includes(bookmark.id)
+        ),
+        pendingDeletes: action.ids.reduce(
+          (set, id) => removeFromSet(set, id),
+          state.pendingDeletes
+        ),
+        error: null,
+      };
+    case "BULK_DELETE_BOOKMARKS_ERROR":
+      return {
+        ...state,
+        pendingDeletes: action.ids.reduce(
+          (set, id) => removeFromSet(set, id),
+          state.pendingDeletes
+        ),
         error: action.error,
       };
     case "UPDATE_BOOKMARK_SUCCESS":
@@ -312,6 +347,56 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
     [simulateError]
   );
 
+  const bulkDelete = useCallback(
+    (ids: string[]): Promise<{ success: true } | { success: false; error: string }> =>
+      new Promise((resolve) => {
+        if (ids.length === 0) {
+          resolve({ success: true });
+          return;
+        }
+
+        dispatch({ type: "BULK_DELETE_BOOKMARKS", ids });
+
+        setTimeout(() => {
+          if (simulateError) {
+            const errorMessage =
+              "Unable to delete bookmarks. Please check your browser storage settings.";
+            dispatch({
+              type: "BULK_DELETE_BOOKMARKS_ERROR",
+              ids,
+              error: errorMessage,
+            });
+            toast.error(errorMessage);
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          deleteManyFromStorage(ids);
+          const stillExist = getBookmarks().filter((bookmark) =>
+            ids.includes(bookmark.id)
+          );
+
+          if (stillExist.length > 0) {
+            const errorMessage =
+              "Unable to delete some bookmarks. Please check your browser storage settings.";
+            dispatch({
+              type: "BULK_DELETE_BOOKMARKS_ERROR",
+              ids,
+              error: errorMessage,
+            });
+            toast.error(errorMessage);
+            resolve({ success: false, error: errorMessage });
+            return;
+          }
+
+          dispatch({ type: "BULK_DELETE_BOOKMARKS_SUCCESS", ids });
+          toast.success(`Deleted ${ids.length} bookmark${ids.length > 1 ? "s" : ""}`);
+          resolve({ success: true });
+        }, 0);
+      }),
+    [simulateError]
+  );
+
   const updateBookmark = useCallback(
     (bookmark: Bookmark): UpdateBookmarkResult => {
       setTimeout(() => {
@@ -378,6 +463,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
       setSimulateError,
       addBookmark,
       deleteBookmark,
+      bulkDelete,
       updateBookmark,
       importBookmarks,
       clearError,
@@ -387,6 +473,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
       simulateError,
       addBookmark,
       deleteBookmark,
+      bulkDelete,
       updateBookmark,
       importBookmarks,
       clearError,
@@ -429,6 +516,7 @@ export function useBookmarks(searchTerm: string = "") {
     clearError: context.clearError,
     addBookmark: context.addBookmark,
     deleteBookmark: context.deleteBookmark,
+    bulkDelete: context.bulkDelete,
     updateBookmark: context.updateBookmark,
     importBookmarks: context.importBookmarks,
   };
