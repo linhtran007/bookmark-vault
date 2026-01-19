@@ -1,58 +1,67 @@
 "use client";
 
+import { useRef } from "react";
 import BookmarkToolbar from "@/components/bookmarks/BookmarkToolbar";
 import FilterChips from "@/components/bookmarks/FilterChips";
 import EmptyState from "@/components/ui/EmptyState";
 import { BookmarkListSkeleton } from "@/components/bookmarks/BookmarkCardSkeleton";
 import { SortKey } from "@/lib/bookmarks";
-import { useComprehensiveClearFilters } from "@/hooks/useComprehensiveClearFilters";
+import { useUiStore } from "@/stores/useUiStore";
 
 interface BookmarkListViewProps {
-  searchQuery: string;
-  selectedTag: string;
-  sortKey: SortKey;
   tagOptions: string[];
   resultsCount: number;
   totalCount: number;
   errorMessage: string | null;
   isInitialLoading?: boolean;
-  onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onClearSearch: () => void;
-  onTagChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-  onSortChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
   cardsContainerRef: React.RefObject<HTMLDivElement | null>;
   cards: React.ReactNode;
   onAddBookmark?: () => void;
 }
 
 export default function BookmarkListView({
-  searchQuery,
-  selectedTag,
-  sortKey,
   tagOptions,
   resultsCount,
   totalCount,
   errorMessage,
   isInitialLoading = false,
-  onSearchChange,
-  onClearSearch,
-  onTagChange,
-  onSortChange,
-  searchInputRef,
   cardsContainerRef,
   cards,
   onAddBookmark,
 }: BookmarkListViewProps) {
+  // Read from store
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const selectedTag = useUiStore((s) => s.selectedTag);
+  const sortKey = useUiStore((s) => s.sortKey);
+
+  // Store actions
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const setSelectedTag = useUiStore((s) => s.setSelectedTag);
+  const setSortKey = useUiStore((s) => s.setSortKey);
+  const clearSearch = useUiStore((s) => s.clearSearch);
+  const clearAllFilters = useUiStore((s) => s.clearAllFilters);
+
+  // Local ref for search input
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleClearSearch = () => {
+    clearSearch();
+  };
+
+  const handleTagChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedTag(event.target.value);
+  };
+
+  const handleSortChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortKey(event.target.value as SortKey);
+  };
+
   const isEmpty = !isInitialLoading && totalCount === 0;
   const isFilteredEmpty = !isInitialLoading && !isEmpty && resultsCount === 0;
-
-  // Hook to clear all filters at once
-  const { clearAllFilters } = useComprehensiveClearFilters({
-    onClearSearch,
-    onClearTag: () => onTagChange({ target: { value: "all" } } as React.ChangeEvent<HTMLSelectElement>),
-    onResetSort: () => onSortChange({ target: { value: "newest" } } as React.ChangeEvent<HTMLSelectElement>),
-  });
 
   const hasActiveFilters = Boolean(
     searchQuery || selectedTag !== "all" || sortKey !== "newest"
@@ -62,18 +71,10 @@ export default function BookmarkListView({
     <div className="space-y-6">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <BookmarkToolbar
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          onClearSearch={onClearSearch}
           onClearFilters={clearAllFilters}
           tagOptions={tagOptions}
-          selectedTag={selectedTag}
-          onTagChange={onTagChange}
-          sortKey={sortKey}
-          onSortChange={onSortChange}
           resultsCount={resultsCount}
           totalCount={totalCount}
-          hasActiveFilters={hasActiveFilters}
           searchInputRef={searchInputRef}
         />
       </div>
@@ -82,17 +83,9 @@ export default function BookmarkListView({
             searchQuery={searchQuery}
             selectedTag={selectedTag}
             sortKey={sortKey}
-            onClearSearch={onClearSearch}
-            onClearTag={() =>
-              onTagChange({
-                target: { value: "all" },
-              } as React.ChangeEvent<HTMLSelectElement>)
-            }
-            onResetSort={() =>
-              onSortChange({
-                target: { value: "newest" },
-              } as React.ChangeEvent<HTMLSelectElement>)
-            }
+            onClearSearch={handleClearSearch}
+            onClearTag={() => setSelectedTag("all")}
+            onResetSort={() => setSortKey("newest")}
           />
       )}
       {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}

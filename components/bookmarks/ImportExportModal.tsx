@@ -11,16 +11,13 @@ import {
   type ImportMode,
 } from "@/hooks/useImportBookmarks";
 import { getBookmarks } from "@/lib/storage";
+import { useUiStore } from "@/stores/useUiStore";
 
-interface ImportExportModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+export default function ImportExportModal() {
+  // Read from store
+  const isOpen = useUiStore((s) => s.isImportExportOpen);
+  const closeImportExport = useUiStore((s) => s.closeImportExport);
 
-export default function ImportExportModal({
-  isOpen,
-  onClose,
-}: ImportExportModalProps) {
   const { allBookmarks, importBookmarks } = useBookmarks();
   const {
     fileInputRef,
@@ -91,7 +88,7 @@ export default function ImportExportModal({
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Manage Data">
+      <Modal isOpen={isOpen} onClose={closeImportExport} title="Manage Data">
         <div className="space-y-6">
           {/* Stats Section */}
           <section className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
@@ -262,7 +259,7 @@ export default function ImportExportModal({
 
           {/* Footer */}
           <div className="flex justify-end pt-2">
-            <Button variant="ghost" onClick={onClose}>
+            <Button variant="ghost" onClick={closeImportExport}>
               Close
             </Button>
           </div>

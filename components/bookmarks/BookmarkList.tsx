@@ -5,32 +5,17 @@ import BookmarkListDialogs from "@/components/bookmarks/BookmarkListDialogs";
 import BookmarkListView from "@/components/bookmarks/BookmarkListView";
 import BulkActionsBar from "@/components/bookmarks/BulkActionsBar";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { SortKey } from "@/lib/bookmarks";
 import { useBookmarkListState } from "@/components/bookmarks/useBookmarkListState";
 import { useBookmarkSelection } from "@/hooks/useBookmarkSelection";
 import { useBookmarks } from "@/hooks/useBookmarks";
+import { useUiStore } from "@/stores/useUiStore";
+
 interface BookmarkListProps {
-  selectedSpaceId: "all" | string;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  selectedTag: string;
-  onTagChange: (value: string) => void;
-  sortKey: SortKey;
-  onSortChange: (value: SortKey) => void;
-  searchInputRef: React.RefObject<HTMLInputElement | null>;
   cardsContainerRef: React.RefObject<HTMLDivElement | null>;
   onAddBookmark?: () => void;
 }
 
 export default function BookmarkList({
-  selectedSpaceId,
-  searchQuery,
-  onSearchChange,
-  selectedTag,
-  onTagChange,
-  sortKey,
-  onSortChange,
-  searchInputRef,
   cardsContainerRef,
   onAddBookmark,
 }: BookmarkListProps) {
@@ -44,10 +29,6 @@ export default function BookmarkList({
     isInitialLoading,
     fetchPreview,
     refreshPreview,
-    handleSearchChange,
-    handleClearSearch,
-    handleTagChange,
-    handleSortChange,
     handleDeleteRequest,
     handleEditRequest,
     deleteTarget,
@@ -55,15 +36,7 @@ export default function BookmarkList({
     handleConfirmDelete,
     handleCloseDelete,
     handleCloseEdit,
-  } = useBookmarkListState({
-    selectedSpaceId,
-    searchQuery,
-    onSearchChange,
-    selectedTag,
-    onTagChange,
-    sortKey,
-    onSortChange,
-  });
+  } = useBookmarkListState();
 
   const {
     selectedIds,
@@ -91,6 +64,9 @@ export default function BookmarkList({
     }
   };
 
+  // Store action for tag click
+  const setSelectedTag = useUiStore((s) => s.setSelectedTag);
+
   const cards = useMemo(
     () =>
       filteredBookmarks.map((bookmark) => (
@@ -99,7 +75,7 @@ export default function BookmarkList({
             bookmark={bookmark}
             onDelete={handleDeleteRequest}
             onEdit={handleEditRequest}
-            onTagClick={(tag) => onTagChange(tag)}
+            onTagClick={(tag) => setSelectedTag(tag)}
             isPendingAdd={pendingAdds.has(bookmark.id)}
             isPendingDelete={pendingDeletes.has(bookmark.id)}
             isSelected={isSelected(bookmark.id)}
@@ -118,26 +94,18 @@ export default function BookmarkList({
       toggle,
       fetchPreview,
       refreshPreview,
-      onTagChange,
+      setSelectedTag,
     ]
   );
 
   return (
     <div className="space-y-6">
       <BookmarkListView
-        searchQuery={searchQuery}
-        selectedTag={selectedTag}
-        sortKey={sortKey}
         tagOptions={tagOptions}
         resultsCount={filteredBookmarks.length}
         totalCount={allBookmarksCount}
         errorMessage={errorMessage}
         isInitialLoading={isInitialLoading}
-        onSearchChange={handleSearchChange}
-        onClearSearch={handleClearSearch}
-        onTagChange={handleTagChange}
-        onSortChange={handleSortChange}
-        searchInputRef={searchInputRef}
         cardsContainerRef={cardsContainerRef}
         cards={cards}
         onAddBookmark={onAddBookmark}

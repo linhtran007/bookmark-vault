@@ -4,21 +4,30 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useUiStore } from "@/stores/useUiStore";
 
 interface BottomSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean; // Optional override for non-store controlled sheets
+  onClose?: () => void; // Optional callback for non-store controlled sheets
   children: React.ReactNode;
   className?: string;
 }
 
 export default function BottomSheet({
-  isOpen,
-  onClose,
+  isOpen: isOpenProp,
+  onClose: onCloseProp,
   children,
   className,
 }: BottomSheetProps) {
   const [isMounted, setIsMounted] = useState(false);
+
+  // Read from store for spaces sheet
+  const isSpacesOpen = useUiStore((s) => s.isSpacesOpen);
+  const closeSpaces = useUiStore((s) => s.closeSpaces);
+
+  // Use props if provided, otherwise use store (for spaces sheet)
+  const isOpen = isOpenProp !== undefined ? isOpenProp : isSpacesOpen;
+  const onClose = onCloseProp !== undefined ? onCloseProp : closeSpaces;
 
   useEffect(() => setIsMounted(true), []);
 

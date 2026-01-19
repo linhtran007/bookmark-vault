@@ -8,24 +8,24 @@ import { useBookmarks } from "@/hooks/useBookmarks";
 import { getUniqueTags } from "@/lib/bookmarks";
 import { getSpaces, PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
+import { useUiStore } from "@/stores/useUiStore";
 
 interface BookmarkFormModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  mode?: "create" | "edit";
-  initialBookmark?: Bookmark | null;
-  defaultSpaceId?: "all" | string;
   titleInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 export default function BookmarkFormModal({
-  isOpen,
-  onClose,
-  mode = "create",
-  initialBookmark,
-  defaultSpaceId = "all",
   titleInputRef,
 }: BookmarkFormModalProps) {
+  // Read from store
+  const isOpen = useUiStore((s) => s.isFormOpen);
+  const editingBookmark = useUiStore((s) => s.editingBookmark);
+  const selectedSpaceId = useUiStore((s) => s.selectedSpaceId);
+  const closeForm = useUiStore((s) => s.closeForm);
+
+  const mode = editingBookmark ? "edit" : "create";
+  const initialBookmark = editingBookmark;
+
   const {
     form,
     errors,
@@ -39,8 +39,8 @@ export default function BookmarkFormModal({
   } = useBookmarkForm({
     mode,
     initialBookmark,
-    defaultSpaceId,
-    onSuccess: onClose,
+    defaultSpaceId: selectedSpaceId,
+    onSuccess: closeForm,
   });
 
   const { allBookmarks } = useBookmarks();
@@ -54,7 +54,7 @@ export default function BookmarkFormModal({
         spaces.map((space) => ({ value: space.id, label: space.name }))
       );
     }
-  }, [isOpen, initialBookmark, resetForm]);
+  }, [isOpen, editingBookmark, resetForm]);
 
   const safeSpaceOptions = useMemo(() => {
     if (spaceOptions.length > 0) return spaceOptions;
@@ -70,7 +70,7 @@ export default function BookmarkFormModal({
   const hasErrors = Object.keys(errors).some((key) => errors[key as keyof typeof errors]);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={closeForm} title={title}>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <BookmarkFormFields
           form={form}
@@ -85,7 +85,7 @@ export default function BookmarkFormModal({
           <p className="text-sm text-red-600" role="alert">{errorMessage}</p>
         )}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={closeForm}>
             Cancel
           </Button>
           <Button

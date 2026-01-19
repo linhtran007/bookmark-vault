@@ -10,30 +10,19 @@ import {
 } from "@/lib/bookmarks";
 import { PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
-
-interface UseBookmarkListStateProps {
-  selectedSpaceId: "all" | string;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  selectedTag: string;
-  onTagChange: (value: string) => void;
-  sortKey: SortKey;
-  onSortChange: (value: SortKey) => void;
-}
+import { useUiStore } from "@/stores/useUiStore";
 
 function getBookmarkSpaceId(bookmark: Bookmark): string {
   return bookmark.spaceId ?? PERSONAL_SPACE_ID;
 }
 
-export function useBookmarkListState({
-  selectedSpaceId,
-  searchQuery,
-  onSearchChange,
-  selectedTag,
-  onTagChange,
-  sortKey,
-  onSortChange,
-}: UseBookmarkListStateProps) {
+export function useBookmarkListState() {
+  // Read from store
+  const selectedSpaceId = useUiStore((s) => s.selectedSpaceId);
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const selectedTag = useUiStore((s) => s.selectedTag);
+  const sortKey = useUiStore((s) => s.sortKey);
+
   const {
     bookmarks,
     allBookmarks,
@@ -74,30 +63,6 @@ export function useBookmarkListState({
     return sortBookmarks(tagged, sortKey);
   }, [bookmarksInScope, selectedTag, sortKey]);
 
-  const handleSearchChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      onSearchChange(event.target.value);
-      if (errorMessage) clearError();
-    },
-    [onSearchChange, errorMessage, clearError]
-  );
-
-  const handleClearSearch = useCallback(() => {
-    onSearchChange("");
-    if (errorMessage) clearError();
-  }, [onSearchChange, errorMessage, clearError]);
-
-  const handleTagChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => onTagChange(event.target.value),
-    [onTagChange]
-  );
-
-  const handleSortChange = useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) =>
-      onSortChange(event.target.value as SortKey),
-    [onSortChange]
-  );
-
   const handleDeleteRequest = useCallback((bookmark: Bookmark) => {
     setDeleteTarget(bookmark);
   }, []);
@@ -124,10 +89,6 @@ export function useBookmarkListState({
     isInitialLoading,
     fetchPreview,
     refreshPreview,
-    handleSearchChange,
-    handleClearSearch,
-    handleTagChange,
-    handleSortChange,
     handleDeleteRequest,
     handleEditRequest,
     deleteTarget,

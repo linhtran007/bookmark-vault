@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import BookmarkFormModal from "@/components/bookmarks/BookmarkFormModal";
 import DeleteConfirmSheet from "@/components/bookmarks/DeleteConfirmSheet";
 import { Bookmark } from "@/lib/types";
+import { useUiStore } from "@/stores/useUiStore";
 
 interface BookmarkListDialogsProps {
   editTarget: Bookmark | null;
@@ -19,14 +21,18 @@ export default function BookmarkListDialogs({
   onCloseDelete,
   onConfirmDelete,
 }: BookmarkListDialogsProps) {
+  const openEditForm = useUiStore((s) => s.openEditForm);
+
+  // Trigger edit form when editTarget changes
+  useEffect(() => {
+    if (editTarget) {
+      openEditForm(editTarget);
+    }
+  }, [editTarget, openEditForm]);
+
   return (
     <>
-      <BookmarkFormModal
-        isOpen={Boolean(editTarget)}
-        mode="edit"
-        initialBookmark={editTarget}
-        onClose={onCloseEdit}
-      />
+      <BookmarkFormModal />
       <DeleteConfirmSheet
         isOpen={Boolean(deleteTarget)}
         title={deleteTarget?.title ?? ""}

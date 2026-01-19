@@ -1,40 +1,57 @@
 "use client";
 
+import { memo } from "react";
 import BookmarkSearchBar from "@/components/bookmarks/BookmarkSearchBar";
 import { Button, Select } from "@/components/ui";
 import { SortKey, SORT_OPTIONS } from "@/lib/bookmarks";
+import { useUiStore } from "@/stores/useUiStore";
 
 interface BookmarkToolbarProps {
-  searchQuery: string;
-  onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onClearSearch: () => void;
   onClearFilters: () => void;
   tagOptions: string[];
-  selectedTag: string;
-  onTagChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
-  sortKey: SortKey;
-  onSortChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   resultsCount: number;
   totalCount: number;
-  hasActiveFilters: boolean;
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
-export default function BookmarkToolbar({
-  searchQuery,
-  onSearchChange,
-  onClearSearch,
+function BookmarkToolbar({
   onClearFilters,
   tagOptions,
-  selectedTag,
-  onTagChange,
-  sortKey,
-  onSortChange,
   resultsCount,
   totalCount,
-  hasActiveFilters,
   searchInputRef,
 }: BookmarkToolbarProps) {
+  // Read from store
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const selectedTag = useUiStore((s) => s.selectedTag);
+  const sortKey = useUiStore((s) => s.sortKey);
+
+  // Store actions
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const setSelectedTag = useUiStore((s) => s.setSelectedTag);
+  const setSortKey = useUiStore((s) => s.setSortKey);
+  const clearSearch = useUiStore((s) => s.clearSearch);
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleClearSearch = () => {
+    clearSearch();
+  };
+
+  const handleTagChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedTag(event.target.value);
+  };
+
+  const handleSortChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortKey(event.target.value as SortKey);
+  };
+
+  const hasActiveFilters = Boolean(
+    searchQuery || selectedTag !== "all" || sortKey !== "newest"
+  );
+
   const tagSelectOptions = [
     { value: "all", label: "All tags" },
     ...tagOptions.map((tag) => ({ value: tag, label: tag })),
@@ -46,20 +63,20 @@ export default function BookmarkToolbar({
         <div className="sm:col-span-2 lg:col-auto">
           <BookmarkSearchBar
             value={searchQuery}
-            onChange={onSearchChange}
+            onChange={handleSearchChange}
             inputRef={searchInputRef}
           />
         </div>
         <Select
           label="Tag"
           value={selectedTag}
-          onChange={onTagChange}
+          onChange={handleTagChange}
           options={tagSelectOptions}
         />
         <Select
           label="Sort"
           value={sortKey}
-          onChange={onSortChange}
+          onChange={handleSortChange}
           options={SORT_OPTIONS}
         />
         <div className="flex items-end justify-end sm:col-span-2 lg:col-auto">
@@ -79,3 +96,6 @@ export default function BookmarkToolbar({
     </div>
   );
 }
+
+// Apply memo for conservative optimization
+export default memo(BookmarkToolbar);

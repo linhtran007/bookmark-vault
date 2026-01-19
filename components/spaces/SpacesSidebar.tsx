@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -20,18 +20,12 @@ import {
   deletePinnedView,
   getPinnedViews,
 } from "@/lib/pinnedViewsStorage";
-import type { SortKey } from "@/lib/bookmarks";
 import type { PinnedView, Space } from "@/lib/types";
+import { useUiStore } from "@/stores/useUiStore";
 
 export type SpaceSelection = "all" | string;
 
 interface SpacesSidebarProps {
-  selectedSpaceId: SpaceSelection;
-  onSelectSpaceId: (spaceId: SpaceSelection) => void;
-  searchQuery: string;
-  selectedTag: string;
-  sortKey: SortKey;
-  onApplyPinnedView: (view: PinnedView) => void;
   className?: string;
 }
 
@@ -81,15 +75,18 @@ function SpacesSidebarSkeleton({ className }: { className?: string }) {
   );
 }
 
-export default function SpacesSidebar({
-  selectedSpaceId,
-  onSelectSpaceId,
-  searchQuery,
-  selectedTag,
-  sortKey,
-  onApplyPinnedView,
-  className,
-}: SpacesSidebarProps) {
+function SpacesSidebar({ className }: SpacesSidebarProps) {
+  // Read from store
+  const selectedSpaceId = useUiStore((s) => s.selectedSpaceId);
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const selectedTag = useUiStore((s) => s.selectedTag);
+  const sortKey = useUiStore((s) => s.sortKey);
+
+  // Store actions
+  const setSelectedSpaceId = useUiStore((s) => s.setSelectedSpaceId);
+  const applyPinnedView = useUiStore((s) => s.applyPinnedView);
+  const closeSpaces = useUiStore((s) => s.closeSpaces);
+
   const [isHydrated, setIsHydrated] = useState(false);
 
   const [spacesVersion, setSpacesVersion] = useState(0);
@@ -157,6 +154,12 @@ export default function SpacesSidebar({
     [deleteTargetId, spaces]
   );
 
+  const handleSelectSpaceId = (spaceId: SpaceSelection) => {
+    setSelectedSpaceId(spaceId);
+    // Auto-close on selection for mobile UX
+    closeSpaces();
+  };
+
   const handleAddSpace = () => {
     setSpaceFormMode("create");
     setSpaceFormTarget(null);
@@ -176,7 +179,7 @@ export default function SpacesSidebar({
     if (spaceFormMode === "create") {
       const created = addSpace({ name });
       setSpacesVersion((v) => v + 1);
-      onSelectSpaceId(created.id);
+      setSelectedSpaceId(created.id);
       return;
     }
 
@@ -211,7 +214,7 @@ export default function SpacesSidebar({
     setPinnedVersion((v) => v + 1);
 
     if (selectedSpaceId === deleteTargetId) {
-      onSelectSpaceId("all");
+      setSelectedSpaceId("all");
     }
 
     setDeleteTargetId(null);
@@ -266,7 +269,7 @@ export default function SpacesSidebar({
           <div className="mt-3 space-y-1">
             <button
               type="button"
-              onClick={() => onSelectSpaceId("all")}
+              onClick={() => handleSelectSpaceId("all")}
               className={cn(
                 "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors",
                 selectedSpaceId === "all"
@@ -298,7 +301,7 @@ export default function SpacesSidebar({
                 >
                   <button
                     type="button"
-                    onClick={() => onSelectSpaceId(space.id)}
+                    onClick={() => handleSelectSpaceId(space.id)}
                     className="min-w-0 text-left text-sm"
                   >
                     <span className="block truncate">{space.name}</span>
@@ -448,13 +451,16 @@ export default function SpacesSidebar({
                 >
                   <button
                     type="button"
-                    onClick={() => onApplyPinnedView(view)}
+                    onClick={() => {
+                      applyPinnedView(view);
+                      closeSpaces(); // Auto-close for mobile UX
+                    }}
                     className="flex-1 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200"
                   >
                     <div className="font-medium">{view.name}</div>
                     <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                       {view.tag !== "all" ? `Tag: ${view.tag}` : "All tags"} · {view.sortKey}
-                      {view.searchQuery ? ` · “${view.searchQuery}”` : ""}
+                      {view.searchQuery ? ` · "${view.searchQuery}"` : ""}
                     </div>
                   </button>
                   <button
@@ -511,3 +517,6 @@ export default function SpacesSidebar({
     </aside>
   );
 }
+
+// Apply memo for conservative optimization
+export default memo(SpacesSidebar);

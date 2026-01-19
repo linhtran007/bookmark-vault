@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import BookmarkFormModal from "@/components/bookmarks/BookmarkFormModal";
 import ImportExportModal from "@/components/bookmarks/ImportExportModal";
 import BookmarkList from "@/components/BookmarkList";
@@ -8,23 +8,35 @@ import { OnboardingPanel } from "@/components/onboarding/OnboardingPanel";
 import { KeyboardShortcutsHelp } from "@/components/ui/KeyboardShortcutsHelp";
 import { BottomSheet, Button } from "@/components/ui";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { SortKey } from "@/lib/bookmarks";
 import { BookmarksProvider } from "@/hooks/useBookmarks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { runOnboardingMigration } from "@/lib/migration";
 import { runSpacesMigration } from "@/lib/spacesMigration";
 import { getSpaces } from "@/lib/spacesStorage";
 import SpacesSidebar, { type SpaceSelection } from "@/components/spaces/SpacesSidebar";
-import type { PinnedView } from "@/lib/types";
+import { useUiStore } from "@/stores/useUiStore";
 
 export default function Home() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTag, setSelectedTag] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("newest");
-  const [selectedSpaceId, setSelectedSpaceId] = useState<SpaceSelection>("all");
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isImportExportOpen, setIsImportExportOpen] = useState(false);
-  const [isSpacesOpen, setIsSpacesOpen] = useState(false);
+  // Read from store
+  const selectedSpaceId = useUiStore((s) => s.selectedSpaceId);
+  const searchQuery = useUiStore((s) => s.searchQuery);
+  const selectedTag = useUiStore((s) => s.selectedTag);
+  const sortKey = useUiStore((s) => s.sortKey);
+  const isFormOpen = useUiStore((s) => s.isFormOpen);
+  const isImportExportOpen = useUiStore((s) => s.isImportExportOpen);
+  const isSpacesOpen = useUiStore((s) => s.isSpacesOpen);
+
+  // Store actions
+  const openForm = useUiStore((s) => s.openForm);
+  const openImportExport = useUiStore((s) => s.openImportExport);
+  const openSpaces = useUiStore((s) => s.openSpaces);
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const closeForm = useUiStore((s) => s.closeForm);
+  const applyPinnedView = useUiStore((s) => s.applyPinnedView);
+  const setSelectedSpaceId = useUiStore((s) => s.setSelectedSpaceId);
+  const closeSpaces = useUiStore((s) => s.closeSpaces);
+
+  // Local refs (not in store)
   const titleInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const cardsContainerRef = useRef<HTMLDivElement>(null);
@@ -39,19 +51,7 @@ export default function Home() {
     titleInputRef,
     searchInputRef,
     cardsContainerRef,
-    onClearForm: () => setIsFormOpen(false),
-    onClearSearch: () => setSearchQuery(""),
-    onOpenForm: () => setIsFormOpen(true),
   });
-
-  const handleAddBookmark = () => setIsFormOpen(true);
-
-  const handleApplyPinnedView = (view: PinnedView) => {
-    setSelectedSpaceId(view.spaceId as SpaceSelection);
-    setSearchQuery(view.searchQuery);
-    setSelectedTag(view.tag);
-    setSortKey(view.sortKey);
-  };
 
   const spacesLabel = useMemo(() => {
     if (selectedSpaceId === "all") return "All spaces";
@@ -72,10 +72,10 @@ export default function Home() {
               <h2 className="text-2xl font-semibold">Manage your bookmarks</h2>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={handleAddBookmark}>Add bookmark</Button>
+              <Button onClick={openForm}>Add bookmark</Button>
               <Button
                 variant="secondary"
-                onClick={() => setIsImportExportOpen(true)}
+                onClick={openImportExport}
                 aria-label="Import or export bookmarks"
               >
                 <ImportExportIcon />
@@ -87,14 +87,7 @@ export default function Home() {
 
           <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
             <div className="hidden lg:block">
-              <SpacesSidebar
-                selectedSpaceId={selectedSpaceId}
-                onSelectSpaceId={setSelectedSpaceId}
-                searchQuery={searchQuery}
-                selectedTag={selectedTag}
-                sortKey={sortKey}
-                onApplyPinnedView={handleApplyPinnedView}
-              />
+              <SpacesSidebar />
             </div>
 
             <div className="min-w-0">
@@ -108,53 +101,25 @@ export default function Home() {
                 <Button
                   variant="secondary"
                   className="shrink-0"
-                  onClick={() => setIsSpacesOpen(true)}
+                  onClick={openSpaces}
                 >
                   Spaces
                 </Button>
               </div>
 
               <BookmarkFormModal
-                isOpen={isFormOpen}
-                onClose={() => setIsFormOpen(false)}
                 titleInputRef={titleInputRef}
-                defaultSpaceId={selectedSpaceId}
               />
-              <ImportExportModal
-                isOpen={isImportExportOpen}
-                onClose={() => setIsImportExportOpen(false)}
-              />
+              <ImportExportModal />
               <BookmarkList
-                selectedSpaceId={selectedSpaceId}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                selectedTag={selectedTag}
-                onTagChange={setSelectedTag}
-                sortKey={sortKey}
-                onSortChange={setSortKey}
-                searchInputRef={searchInputRef}
                 cardsContainerRef={cardsContainerRef}
-                onAddBookmark={handleAddBookmark}
+                onAddBookmark={openForm}
               />
             </div>
           </div>
 
-          <BottomSheet isOpen={isSpacesOpen} onClose={() => setIsSpacesOpen(false)} className="max-h-[80vh] overflow-auto">
-            <SpacesSidebar
-              selectedSpaceId={selectedSpaceId}
-              onSelectSpaceId={(id) => {
-                setSelectedSpaceId(id);
-                setIsSpacesOpen(false);
-              }}
-              searchQuery={searchQuery}
-              selectedTag={selectedTag}
-              sortKey={sortKey}
-              onApplyPinnedView={(view) => {
-                handleApplyPinnedView(view);
-                setIsSpacesOpen(false);
-              }}
-              className="w-full"
-            />
+          <BottomSheet className="max-h-[80vh] overflow-auto">
+            <SpacesSidebar className="w-full" />
           </BottomSheet>
         </div>
       </BookmarksProvider>
@@ -184,4 +149,3 @@ function ImportExportIcon() {
     </svg>
   );
 }
-
