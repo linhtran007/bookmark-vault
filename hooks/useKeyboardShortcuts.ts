@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { useUiStore } from "@/stores/useUiStore";
 
 interface KeyboardShortcutOptions {
   titleInputRef: React.RefObject<HTMLInputElement | null>;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
   cardsContainerRef: React.RefObject<HTMLDivElement | null>;
-  onClearForm: () => void;
-  onClearSearch: () => void;
-  onOpenForm?: () => void;
 }
 
 const getColumnsCount = (container: HTMLElement) => {
@@ -30,10 +28,12 @@ export function useKeyboardShortcuts({
   titleInputRef,
   searchInputRef,
   cardsContainerRef,
-  onClearForm,
-  onClearSearch,
-  onOpenForm,
 }: KeyboardShortcutOptions) {
+  // Store actions
+  const openForm = useUiStore((s) => s.openForm);
+  const closeForm = useUiStore((s) => s.closeForm);
+  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key ? event.key.toLowerCase() : "";
@@ -41,7 +41,7 @@ export function useKeyboardShortcuts({
 
       if (isModifier && key === "n") {
         event.preventDefault();
-        onOpenForm?.();
+        openForm();
         window.setTimeout(() => {
           titleInputRef.current?.focus();
           titleInputRef.current?.select();
@@ -57,8 +57,8 @@ export function useKeyboardShortcuts({
       }
 
       if (key === "escape") {
-        onClearForm();
-        onClearSearch();
+        closeForm();
+        setSearchQuery("");
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
@@ -144,10 +144,10 @@ export function useKeyboardShortcuts({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     cardsContainerRef,
-    onClearForm,
-    onClearSearch,
-    onOpenForm,
+    closeForm,
+    openForm,
     searchInputRef,
+    setSearchQuery,
     titleInputRef,
   ]);
 }
