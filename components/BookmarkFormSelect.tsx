@@ -14,6 +14,7 @@ interface BookmarkFormSelectProps {
   options: SelectOption[];
   error?: string;
   placeholder?: string;
+  containerClassName?: string;
 }
 
 export default function BookmarkFormSelect({
@@ -25,6 +26,7 @@ export default function BookmarkFormSelect({
   options,
   error,
   placeholder = "Select an option",
+  containerClassName,
 }: BookmarkFormSelectProps) {
   return (
     <Select
@@ -35,6 +37,7 @@ export default function BookmarkFormSelect({
       onChange={onChange}
       options={[{ value: "", label: placeholder }, ...options]}
       error={error}
+      containerClassName={containerClassName}
     />
   );
 }

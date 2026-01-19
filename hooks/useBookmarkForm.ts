@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { CreateBookmarkSchema, type CreateBookmarkInput } from "@/lib/validation";
 import { Bookmark, BookmarkColor } from "@/lib/types";
+import { PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { useBookmarks } from "@/hooks/useBookmarks";
 
 export interface BookmarkFormState {
@@ -9,6 +10,7 @@ export interface BookmarkFormState {
   description: string;
   tags: string;
   color: string;
+  spaceId: string;
 }
 
 export interface BookmarkFormErrors {
@@ -17,32 +19,48 @@ export interface BookmarkFormErrors {
   description?: string;
   tags?: string;
   color?: string;
+  spaceId?: string;
 }
 
 type BookmarkFormMode = "create" | "edit";
 
+const resolveDefaultSpaceId = (defaultSpaceId?: string) => {
+  if (!defaultSpaceId || defaultSpaceId === "all") return PERSONAL_SPACE_ID;
+  return defaultSpaceId;
+};
+
 const buildInitialState = (
-  bookmark?: Bookmark | null
+  bookmark?: Bookmark | null,
+  defaultSpaceId?: string
 ): BookmarkFormState => ({
   title: bookmark?.title ?? "",
   url: bookmark?.url ?? "",
   description: bookmark?.description ?? "",
   tags: bookmark?.tags?.join(", ") ?? "",
   color: bookmark?.color ?? "",
+  spaceId: bookmark?.spaceId ?? resolveDefaultSpaceId(defaultSpaceId),
 });
 
 // Order of fields for validation focus
-const fieldOrder: (keyof BookmarkFormState)[] = ["title", "url", "description", "tags", "color"];
+const fieldOrder: (keyof BookmarkFormState)[] = [
+  "title",
+  "url",
+  "spaceId",
+  "description",
+  "tags",
+  "color",
+];
 
 export function useBookmarkForm(options?: {
   mode?: BookmarkFormMode;
   initialBookmark?: Bookmark | null;
+  defaultSpaceId?: string;
   onSuccess?: (bookmark: CreateBookmarkInput) => void;
 }) {
   const { addBookmark, updateBookmark, isLoading, errorMessage, clearError } =
     useBookmarks();
   const [form, setForm] = useState<BookmarkFormState>(() =>
-    buildInitialState(options?.initialBookmark)
+    buildInitialState(options?.initialBookmark, options?.defaultSpaceId)
   );
   const [errors, setErrors] = useState<BookmarkFormErrors>({});
   const [showSuccess, setShowSuccess] = useState(false);
@@ -51,7 +69,12 @@ export function useBookmarkForm(options?: {
 
   const resetForm = useCallback(
     (bookmark?: Bookmark | null) => {
-      setForm(buildInitialState(bookmark ?? options?.initialBookmark));
+      setForm(
+        buildInitialState(
+          bookmark ?? options?.initialBookmark,
+          options?.defaultSpaceId
+        )
+      );
       setErrors({});
       setShowSuccess(false);
       if (errorMessage) {
@@ -106,13 +129,14 @@ export function useBookmarkForm(options?: {
       .map((tag) => tag.trim())
       .filter((tag) => tag.length > 0);
 
-    const bookmarkData = {
-      title: form.title,
-      url: form.url,
-      description: form.description || undefined,
-      tags: tagsArray,
-      color: form.color ? (form.color as BookmarkColor) : undefined,
-    };
+     const bookmarkData = {
+       title: form.title,
+       url: form.url,
+       description: form.description || undefined,
+       tags: tagsArray,
+       color: form.color ? (form.color as BookmarkColor) : undefined,
+       spaceId: form.spaceId || resolveDefaultSpaceId(options?.defaultSpaceId),
+     };
 
     const result = CreateBookmarkSchema.safeParse(bookmarkData);
 

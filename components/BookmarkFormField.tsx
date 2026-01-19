@@ -19,6 +19,7 @@ interface BookmarkFormFieldProps {
   rows?: number;
   inputRef?: Ref<HTMLInputElement | HTMLTextAreaElement>;
   registerField?: (fieldName: keyof BookmarkFormState, element: HTMLInputElement | null) => void;
+  containerClassName?: string;
 }
 
 export default function BookmarkFormField({
@@ -35,6 +36,7 @@ export default function BookmarkFormField({
   rows = 3,
   inputRef,
   registerField,
+  containerClassName,
 }: BookmarkFormFieldProps) {
   const handleRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
     // Register with useBookmarkForm for focus management
@@ -61,6 +63,7 @@ export default function BookmarkFormField({
         rows={rows}
         placeholder={placeholder}
         ref={handleRef as Ref<HTMLTextAreaElement>}
+        containerClassName={containerClassName}
       />
     );
   }
@@ -77,6 +80,7 @@ export default function BookmarkFormField({
       required={required}
       placeholder={placeholder}
       ref={handleRef as Ref<HTMLInputElement>}
+      containerClassName={containerClassName}
     />
   );
 }

@@ -35,7 +35,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <header className="bg-white/80 backdrop-blur border-b border-zinc-200 dark:bg-slate-900/80 dark:border-slate-800 relative z-9999">
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 2xl:max-w-7xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" aria-hidden="true" />
@@ -45,7 +45,7 @@ export default function RootLayout({
               </div>
             </div>
           </header>
-          <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 2xl:max-w-7xl">
             {children}
           </main>
           <ToastProvider />

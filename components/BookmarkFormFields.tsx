@@ -16,6 +16,7 @@ interface BookmarkFormFieldsProps {
   ) => void;
   titleInputRef?: React.RefObject<HTMLInputElement | null>;
   registerField?: (fieldName: keyof BookmarkFormState, element: HTMLInputElement | null) => void;
+  spaceOptions: { value: string; label: string }[];
 }
 
 const colorOptions = BOOKMARK_COLORS.map((color) => ({
@@ -29,9 +30,10 @@ export default function BookmarkFormFields({
   onChange,
   titleInputRef,
   registerField,
+  spaceOptions,
 }: BookmarkFormFieldsProps) {
   return (
-    <>
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <BookmarkFormField
         id="title"
         name="title"
@@ -43,6 +45,7 @@ export default function BookmarkFormFields({
         placeholder="Enter bookmark title"
         inputRef={titleInputRef}
         registerField={registerField}
+        containerClassName="sm:col-span-2"
       />
 
       <BookmarkFormField
@@ -55,6 +58,31 @@ export default function BookmarkFormFields({
         error={errors.url}
         placeholder="https://example.com"
         registerField={registerField}
+        containerClassName="sm:col-span-2"
+      />
+
+      <BookmarkFormSelect
+        id="spaceId"
+        name="spaceId"
+        label="Space"
+        value={form.spaceId}
+        onChange={onChange}
+        options={spaceOptions}
+        error={errors.spaceId}
+        placeholder="Select space"
+        containerClassName="sm:col-span-1"
+      />
+
+      <BookmarkFormField
+        id="tags"
+        name="tags"
+        label="Tags"
+        value={form.tags}
+        onChange={onChange}
+        error={errors.tags}
+        placeholder="react, javascript, tutorial (comma-separated)"
+        registerField={registerField}
+        containerClassName="sm:col-span-1"
       />
 
       <BookmarkFormField
@@ -67,17 +95,7 @@ export default function BookmarkFormFields({
         error={errors.description}
         placeholder="Optional description"
         registerField={registerField}
-      />
-
-      <BookmarkFormField
-        id="tags"
-        name="tags"
-        label="Tags"
-        value={form.tags}
-        onChange={onChange}
-        error={errors.tags}
-        placeholder="react, javascript, tutorial (comma-separated)"
-        registerField={registerField}
+        containerClassName="sm:col-span-2"
       />
 
       <BookmarkFormSelect
@@ -89,7 +107,8 @@ export default function BookmarkFormFields({
         options={colorOptions}
         error={errors.color}
         placeholder="No color"
+        containerClassName="sm:col-span-2"
       />
-    </>
+    </div>
   );
 }

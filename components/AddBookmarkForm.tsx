@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import BookmarkFormFields from "@/components/BookmarkFormFields";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { useBookmarkForm } from "@/hooks/useBookmarkForm";
+import { getSpaces, PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import type { CreateBookmarkInput } from "@/lib/validation";
 
 interface AddBookmarkFormProps {
@@ -36,6 +37,14 @@ export default function AddBookmarkForm({
     };
   }, [clearForm, clearFormRef]);
 
+  const spaceOptions = useMemo(() => {
+    const spaces = getSpaces();
+    if (spaces.length > 0) {
+      return spaces.map((space) => ({ value: space.id, label: space.name }));
+    }
+    return [{ value: PERSONAL_SPACE_ID, label: "Personal" }];
+  }, []);
+
   return (
     <Card>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -48,6 +57,7 @@ export default function AddBookmarkForm({
           errors={errors}
           onChange={handleChange}
           titleInputRef={titleInputRef}
+          spaceOptions={spaceOptions}
         />
 
         <Button type="submit" disabled={isLoading} className="w-full">

@@ -21,6 +21,10 @@
 | T009 | FE - Implement dashboard blocks | ✅ done | Added dashboard card (stats + recently added) in sidebar |
 | T012 | FE - Delete space safety (reassign to Personal) | ✅ done | Delete moves bookmarks to Personal + removes pinned views |
 | T013 | FE/BE - Import/Export compatibility for spaceId | ✅ done | Import preserves spaceId and normalizes to Personal when missing/unknown |
+| T014 | FE - Space form modal (create + rename) | ✅ done | Added `SpaceFormModal` and used for add/rename |
+| T015 | FE - Wire space modal into sidebar (remove prompts) | ✅ done | Removed prompt-based add/rename flows |
+| T016 | FE - Bookmark form: space dropdown + default selection | ✅ done | Space dropdown + defaults to selected space + 2-col layout |
+| T017 | FE - Responsive Spaces UI (mobile bottom sheet) | ✅ done | Mobile Spaces button + BottomSheet; desktop sidebar sticky |
 
 ---
 
@@ -78,4 +82,15 @@
   - Updated import to preserve/normalize `spaceId`:
     - `lib/validation.ts` accepts optional `spaceId`
     - `hooks/useImportBookmarks.ts` normalizes missing/unknown spaceId to Personal
+  - Verification: `npm run build`.
+
+- 2026-01-19: Completed T014–T017 (UX polish).
+  - Spaces add/rename now uses a modal: `components/spaces/SpaceFormModal.tsx` + `components/spaces/SpacesSidebar.tsx`.
+  - Bookmark form:
+    - Added Space dropdown + defaults to selected space: `components/bookmarks/BookmarkFormModal.tsx` + `hooks/useBookmarkForm.ts`.
+    - 2-column layout on desktop: `components/BookmarkFormFields.tsx`.
+  - Responsive spaces UI:
+    - Desktop: sidebar sticky
+    - Mobile: "Spaces" button opens `BottomSheet` with the same content
+    - Wiring in `app/page.tsx`.
   - Verification: `npm run build`.

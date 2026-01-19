@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button, Modal } from "@/components/ui";
 import BookmarkFormFields from "@/components/BookmarkFormFields";
 import { useBookmarkForm } from "@/hooks/useBookmarkForm";
+import { getSpaces, PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
 
 interface BookmarkFormModalProps {
@@ -11,6 +12,7 @@ interface BookmarkFormModalProps {
   onClose: () => void;
   mode?: "create" | "edit";
   initialBookmark?: Bookmark | null;
+  defaultSpaceId?: "all" | string;
   titleInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
@@ -19,6 +21,7 @@ export default function BookmarkFormModal({
   onClose,
   mode = "create",
   initialBookmark,
+  defaultSpaceId = "all",
   titleInputRef,
 }: BookmarkFormModalProps) {
   const {
@@ -34,14 +37,26 @@ export default function BookmarkFormModal({
   } = useBookmarkForm({
     mode,
     initialBookmark,
+    defaultSpaceId,
     onSuccess: onClose,
   });
+
+  const [spaceOptions, setSpaceOptions] = useState<{ value: string; label: string }[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       resetForm(initialBookmark ?? null);
+      const spaces = getSpaces();
+      setSpaceOptions(
+        spaces.map((space) => ({ value: space.id, label: space.name }))
+      );
     }
   }, [isOpen, initialBookmark, resetForm]);
+
+  const safeSpaceOptions = useMemo(() => {
+    if (spaceOptions.length > 0) return spaceOptions;
+    return [{ value: PERSONAL_SPACE_ID, label: "Personal" }];
+  }, [spaceOptions]);
 
   const title = mode === "edit" ? "Edit Bookmark" : "Add Bookmark";
   const submitLabel = mode === "edit" ? "Save changes" : "Add Bookmark";
@@ -58,6 +73,7 @@ export default function BookmarkFormModal({
           onChange={handleChange}
           titleInputRef={titleInputRef}
           registerField={registerField}
+          spaceOptions={safeSpaceOptions}
         />
         {errorMessage && (
           <p className="text-sm text-red-600" role="alert">{errorMessage}</p>

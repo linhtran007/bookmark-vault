@@ -54,34 +54,46 @@ export default function BookmarkListView({
     onResetSort: () => onSortChange({ target: { value: "newest" } } as React.ChangeEvent<HTMLSelectElement>),
   });
 
-  const hasActiveFilters = searchQuery || selectedTag !== "all" || sortKey !== "newest";
+  const hasActiveFilters = Boolean(
+    searchQuery || selectedTag !== "all" || sortKey !== "newest"
+  );
 
   return (
     <div className="space-y-6">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <BookmarkToolbar
-        searchQuery={searchQuery}
-        onSearchChange={onSearchChange}
-        onClearSearch={clearAllFilters}
-        tagOptions={tagOptions}
-        selectedTag={selectedTag}
-        onTagChange={onTagChange}
-        sortKey={sortKey}
-        onSortChange={onSortChange}
-        resultsCount={resultsCount}
-        totalCount={totalCount}
-        searchInputRef={searchInputRef}
-      />
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          onClearSearch={onClearSearch}
+          onClearFilters={clearAllFilters}
+          tagOptions={tagOptions}
+          selectedTag={selectedTag}
+          onTagChange={onTagChange}
+          sortKey={sortKey}
+          onSortChange={onSortChange}
+          resultsCount={resultsCount}
+          totalCount={totalCount}
+          hasActiveFilters={hasActiveFilters}
+          searchInputRef={searchInputRef}
+        />
       </div>
       {hasActiveFilters && (
-        <FilterChips
-          searchQuery={searchQuery}
-          selectedTag={selectedTag}
-          sortKey={sortKey}
-          onClearSearch={clearAllFilters}
-          onClearTag={() => onTagChange({ target: { value: "all" } } as React.ChangeEvent<HTMLSelectElement>)}
-          onResetSort={() => onSortChange({ target: { value: "newest" } } as React.ChangeEvent<HTMLSelectElement>)}
-        />
+          <FilterChips
+            searchQuery={searchQuery}
+            selectedTag={selectedTag}
+            sortKey={sortKey}
+            onClearSearch={onClearSearch}
+            onClearTag={() =>
+              onTagChange({
+                target: { value: "all" },
+              } as React.ChangeEvent<HTMLSelectElement>)
+            }
+            onResetSort={() =>
+              onSortChange({
+                target: { value: "newest" },
+              } as React.ChangeEvent<HTMLSelectElement>)
+            }
+          />
       )}
       {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
       {isInitialLoading ? (
@@ -101,10 +113,10 @@ export default function BookmarkListView({
           onAction={clearAllFilters}
         />
       ) : (
-        <div
-          ref={cardsContainerRef}
-          className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
-        >
+          <div
+            ref={cardsContainerRef}
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3"
+          >
           {cards}
         </div>
       )}

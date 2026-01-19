@@ -4,30 +4,81 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import SpaceFormModal from "@/components/spaces/SpaceFormModal";
+import PinnedViewFormModal from "@/components/spaces/PinnedViewFormModal";
+import { useBookmarks } from "@/hooks/useBookmarks";
 import { cn } from "@/lib/utils";
 import {
-  getSpaces,
   PERSONAL_SPACE_ID,
   addSpace,
   deleteSpace,
+  getSpaces,
   updateSpace,
 } from "@/lib/spacesStorage";
-import { addPinnedView, deletePinnedView, getPinnedViews } from "@/lib/pinnedViewsStorage";
-import type { PinnedView } from "@/lib/types";
+import {
+  addPinnedView,
+  deletePinnedView,
+  getPinnedViews,
+} from "@/lib/pinnedViewsStorage";
 import type { SortKey } from "@/lib/bookmarks";
-import { useBookmarks } from "@/hooks/useBookmarks";
+import type { PinnedView, Space } from "@/lib/types";
 
 export type SpaceSelection = "all" | string;
 
 interface SpacesSidebarProps {
   selectedSpaceId: SpaceSelection;
   onSelectSpaceId: (spaceId: SpaceSelection) => void;
-
   searchQuery: string;
   selectedTag: string;
   sortKey: SortKey;
-
   onApplyPinnedView: (view: PinnedView) => void;
+  className?: string;
+}
+
+function SpacesSidebarSkeleton({ className }: { className?: string }) {
+  return (
+    <aside className={cn("w-full lg:w-72", className)}>
+      <div className="space-y-4 animate-pulse">
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-20 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="h-8 w-16 rounded bg-zinc-200 dark:bg-slate-800" />
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-9 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="h-9 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="h-9 rounded bg-zinc-200 dark:bg-slate-800" />
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-slate-800" />
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="h-16 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="h-16 rounded bg-zinc-200 dark:bg-slate-800" />
+          </div>
+          <div className="mt-4">
+            <div className="h-3 w-28 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="mt-2 space-y-2">
+              <div className="h-10 rounded bg-zinc-200 dark:bg-slate-800" />
+              <div className="h-10 rounded bg-zinc-200 dark:bg-slate-800" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-28 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="h-8 w-16 rounded bg-zinc-200 dark:bg-slate-800" />
+          </div>
+          <div className="mt-3 space-y-2">
+            <div className="h-10 rounded bg-zinc-200 dark:bg-slate-800" />
+            <div className="h-10 rounded bg-zinc-200 dark:bg-slate-800" />
+          </div>
+        </Card>
+      </div>
+    </aside>
+  );
 }
 
 export default function SpacesSidebar({
@@ -37,22 +88,38 @@ export default function SpacesSidebar({
   selectedTag,
   sortKey,
   onApplyPinnedView,
+  className,
 }: SpacesSidebarProps) {
+  const [isHydrated, setIsHydrated] = useState(false);
+
   const [spacesVersion, setSpacesVersion] = useState(0);
   const [pinnedVersion, setPinnedVersion] = useState(0);
+
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [pinnedViews, setPinnedViews] = useState<PinnedView[]>([]);
+
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [isSpaceFormOpen, setIsSpaceFormOpen] = useState(false);
+  const [spaceFormMode, setSpaceFormMode] = useState<"create" | "edit">("create");
+  const [spaceFormTarget, setSpaceFormTarget] = useState<Space | null>(null);
+
+  const [isPinnedViewFormOpen, setIsPinnedViewFormOpen] = useState(false);
 
   const { allBookmarks, moveBookmarksToSpace } = useBookmarks();
 
-  const spaces = useMemo(() => {
-    void spacesVersion;
-    return getSpaces();
-  }, [spacesVersion]);
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
-  const pinnedViews = useMemo(() => {
-    void pinnedVersion;
-    return getPinnedViews(selectedSpaceId);
-  }, [pinnedVersion, selectedSpaceId]);
+  useEffect(() => {
+    if (!isHydrated) return;
+    setSpaces(getSpaces());
+  }, [isHydrated, spacesVersion]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    setPinnedViews(getPinnedViews(selectedSpaceId));
+  }, [isHydrated, pinnedVersion, selectedSpaceId]);
 
   const bookmarkCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -90,36 +157,31 @@ export default function SpacesSidebar({
     [deleteTargetId, spaces]
   );
 
-  useEffect(() => {
-    // Ensure default space exists after mount.
-    setSpacesVersion((v) => v + 1);
-  }, []);
-
   const handleAddSpace = () => {
-    const name = window.prompt("New space name");
-    if (!name || !name.trim()) return;
-
-    const created = addSpace({ name: name.trim() });
-    setSpacesVersion((v) => v + 1);
-    onSelectSpaceId(created.id);
+    setSpaceFormMode("create");
+    setSpaceFormTarget(null);
+    setIsSpaceFormOpen(true);
   };
 
   const handleRenameSpace = (spaceId: string) => {
-    if (spaceId === PERSONAL_SPACE_ID) {
-      window.alert("Personal space cannot be renamed.");
+    const space = spaces.find((s) => s.id === spaceId) ?? null;
+    if (!space || space.id === PERSONAL_SPACE_ID) return;
+
+    setSpaceFormMode("edit");
+    setSpaceFormTarget(space);
+    setIsSpaceFormOpen(true);
+  };
+
+  const handleSubmitSpaceForm = ({ name }: { name: string }) => {
+    if (spaceFormMode === "create") {
+      const created = addSpace({ name });
+      setSpacesVersion((v) => v + 1);
+      onSelectSpaceId(created.id);
       return;
     }
 
-    const space = spaces.find((s) => s.id === spaceId);
-    const nextName = window.prompt("Rename space", space?.name ?? "");
-    if (!nextName || !nextName.trim()) return;
-
-    updateSpace({
-      id: spaceId,
-      name: nextName.trim(),
-      createdAt: space?.createdAt ?? new Date().toISOString(),
-      color: space?.color,
-    });
+    if (!spaceFormTarget) return;
+    updateSpace({ ...spaceFormTarget, name });
     setSpacesVersion((v) => v + 1);
   };
 
@@ -128,7 +190,6 @@ export default function SpacesSidebar({
       window.alert("Personal space cannot be deleted.");
       return;
     }
-
     setDeleteTargetId(spaceId);
   };
 
@@ -141,7 +202,6 @@ export default function SpacesSidebar({
       return;
     }
 
-    // Remove pinned views tied to the deleted space.
     for (const view of getPinnedViews(deleteTargetId)) {
       deletePinnedView(view.id);
     }
@@ -158,22 +218,13 @@ export default function SpacesSidebar({
   };
 
   const handleSavePinnedView = () => {
-    const name = window.prompt("Name this view");
-    if (!name || !name.trim()) return;
+    setIsPinnedViewFormOpen(true);
+  };
 
-    // Decision: block duplicate names within the same space.
-    const normalized = name.trim().toLowerCase();
-    const duplicate = pinnedViews.some(
-      (view) => view.name.trim().toLowerCase() === normalized
-    );
-    if (duplicate) {
-      window.alert("A pinned view with this name already exists.");
-      return;
-    }
-
+  const handleSubmitPinnedViewForm = ({ name }: { name: string }) => {
     addPinnedView({
       spaceId: selectedSpaceId,
-      name: name.trim(),
+      name,
       searchQuery,
       tag: selectedTag,
       sortKey,
@@ -186,8 +237,17 @@ export default function SpacesSidebar({
     setPinnedVersion((v) => v + 1);
   };
 
+  if (!isHydrated) {
+    return <SpacesSidebarSkeleton className={className} />;
+  }
+
   return (
-    <aside className="w-full lg:w-72">
+    <aside
+      className={cn(
+        "w-full lg:w-72 lg:sticky lg:top-6 lg:self-start",
+        className
+      )}
+    >
       <div className="space-y-4">
         <Card className="p-4">
           <div className="flex items-center justify-between gap-3">
@@ -225,11 +285,12 @@ export default function SpacesSidebar({
             {spaces.map((space) => {
               const count = bookmarkCounts.get(space.id) ?? 0;
               const active = selectedSpaceId === space.id;
+
               return (
                 <div
                   key={space.id}
                   className={cn(
-                    "group flex items-center gap-2 rounded-lg px-3 py-2 transition-colors",
+                    "grid grid-cols-[1fr_auto_auto] items-center gap-2 rounded-lg px-3 py-2 transition-colors",
                     active
                       ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300"
                       : "text-slate-700 hover:bg-zinc-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -238,28 +299,19 @@ export default function SpacesSidebar({
                   <button
                     type="button"
                     onClick={() => onSelectSpaceId(space.id)}
-                    className="min-w-0 flex-1 text-left text-sm"
+                    className="min-w-0 text-left text-sm"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate">{space.name}</span>
-                      <span
-                        className={cn(
-                          "text-xs",
-                          active
-                            ? "text-rose-600 dark:text-rose-300"
-                            : "text-slate-500 dark:text-slate-400"
-                        )}
-                      >
-                        {count}
-                      </span>
-                    </div>
+                    <span className="block truncate">{space.name}</span>
                   </button>
 
-                  {space.id !== PERSONAL_SPACE_ID && (
-                    <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  {space.id !== PERSONAL_SPACE_ID ? (
+                    <div className="flex items-center justify-center gap-1">
                       <button
                         type="button"
-                        onClick={() => handleRenameSpace(space.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRenameSpace(space.id);
+                        }}
                         className="rounded-md p-1.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                         aria-label={`Rename space ${space.name}`}
                       >
@@ -275,7 +327,10 @@ export default function SpacesSidebar({
                       </button>
                       <button
                         type="button"
-                        onClick={() => requestDeleteSpace(space.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          requestDeleteSpace(space.id);
+                        }}
                         className="rounded-md p-1.5 text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400"
                         aria-label={`Delete space ${space.name}`}
                       >
@@ -293,7 +348,20 @@ export default function SpacesSidebar({
                         </svg>
                       </button>
                     </div>
+                  ) : (
+                    <div />
                   )}
+
+                  <span
+                    className={cn(
+                      "text-xs",
+                      active
+                        ? "text-rose-600 dark:text-rose-300"
+                        : "text-slate-500 dark:text-slate-400"
+                    )}
+                  >
+                    {count}
+                  </span>
                 </div>
               );
             })}
@@ -315,7 +383,9 @@ export default function SpacesSidebar({
               </div>
             </div>
             <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-              <div className="text-xs text-slate-500 dark:text-slate-400">Tags</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Tags
+              </div>
               <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
                 {uniqueTagCount}
               </div>
@@ -416,12 +486,27 @@ export default function SpacesSidebar({
       <ConfirmDialog
         isOpen={Boolean(deleteTarget)}
         title={`Delete space "${deleteTarget?.name ?? ""}"? (${bookmarkCounts.get(deleteTargetId ?? "") ?? 0} bookmarks)`}
-        description={`Bookmarks in this space will be moved to Personal. This will also remove pinned views for this space.`}
+        description="Bookmarks in this space will be moved to Personal. Pinned views for this space will be removed."
         confirmLabel="Delete"
         cancelLabel="Cancel"
         variant="danger"
         onConfirm={confirmDeleteSpace}
         onClose={() => setDeleteTargetId(null)}
+      />
+
+      <SpaceFormModal
+        isOpen={isSpaceFormOpen}
+        onClose={() => setIsSpaceFormOpen(false)}
+        mode={spaceFormMode}
+        initialSpace={spaceFormTarget}
+        onSubmit={handleSubmitSpaceForm}
+      />
+
+      <PinnedViewFormModal
+        isOpen={isPinnedViewFormOpen}
+        onClose={() => setIsPinnedViewFormOpen(false)}
+        existingNames={pinnedViews.map((v) => v.name)}
+        onSubmit={handleSubmitPinnedViewForm}
       />
     </aside>
   );

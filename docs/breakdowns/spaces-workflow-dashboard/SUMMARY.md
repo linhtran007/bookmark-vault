@@ -69,6 +69,12 @@ spaces-workflow-dashboard/
 │   ├── T011: FE - Filter pipeline: space → search → tag → sort
 │   ├── T012: FE - Delete space safety (reassign to Personal)
 │   └── T013: FE/BE - Import/Export compatibility for spaceId
+│
+├── Phase 4: UX Polish (Responsive + Forms)
+│   ├── T014: FE - Space form modal (create + rename)
+│   ├── T015: FE - Wire space modal into sidebar
+│   ├── T016: FE - Bookmark form: space dropdown + default selection
+│   └── T017: FE - Responsive Spaces UI (mobile bottom sheet)
 └── progress.md
 ```
 
