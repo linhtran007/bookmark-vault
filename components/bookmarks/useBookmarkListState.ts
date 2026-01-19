@@ -30,6 +30,7 @@ export function useBookmarkListState({
     clearError,
     pendingAdds,
     pendingDeletes,
+    isInitialLoading,
   } = useBookmarks(searchQuery);
   const [deleteTarget, setDeleteTarget] = useState<Bookmark | null>(null);
   const [editTarget, setEditTarget] = useState<Bookmark | null>(null);
@@ -80,6 +81,7 @@ export function useBookmarkListState({
     tagOptions,
     pendingAdds,
     pendingDeletes,
+    isInitialLoading,
     handleSearchChange,
     handleClearSearch,
     handleTagChange,

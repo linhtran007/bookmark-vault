@@ -39,6 +39,7 @@ export default function BookmarkList({
     tagOptions,
     pendingAdds,
     pendingDeletes,
+    isInitialLoading,
     handleSearchChange,
     handleClearSearch,
     handleTagChange,
@@ -112,6 +113,7 @@ export default function BookmarkList({
         resultsCount={filteredBookmarks.length}
         totalCount={allBookmarksCount}
         errorMessage={errorMessage}
+        isInitialLoading={isInitialLoading}
         onSearchChange={handleSearchChange}
         onClearSearch={handleClearSearch}
         onTagChange={handleTagChange}

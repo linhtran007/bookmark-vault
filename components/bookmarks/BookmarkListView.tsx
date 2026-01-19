@@ -3,6 +3,7 @@
 import BookmarkToolbar from "@/components/bookmarks/BookmarkToolbar";
 import FilterChips from "@/components/bookmarks/FilterChips";
 import EmptyState from "@/components/ui/EmptyState";
+import { BookmarkListSkeleton } from "@/components/bookmarks/BookmarkCardSkeleton";
 import { SortKey } from "@/lib/bookmarks";
 import { useComprehensiveClearFilters } from "@/hooks/useComprehensiveClearFilters";
 
@@ -14,6 +15,7 @@ interface BookmarkListViewProps {
   resultsCount: number;
   totalCount: number;
   errorMessage: string | null;
+  isInitialLoading?: boolean;
   onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearSearch: () => void;
   onTagChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
@@ -32,6 +34,7 @@ export default function BookmarkListView({
   resultsCount,
   totalCount,
   errorMessage,
+  isInitialLoading = false,
   onSearchChange,
   onClearSearch,
   onTagChange,
@@ -41,8 +44,8 @@ export default function BookmarkListView({
   cards,
   onAddBookmark,
 }: BookmarkListViewProps) {
-  const isEmpty = totalCount === 0;
-  const isFilteredEmpty = !isEmpty && resultsCount === 0;
+  const isEmpty = !isInitialLoading && totalCount === 0;
+  const isFilteredEmpty = !isInitialLoading && !isEmpty && resultsCount === 0;
 
   // Hook to clear all filters at once
   const { clearAllFilters } = useComprehensiveClearFilters({
@@ -81,7 +84,9 @@ export default function BookmarkListView({
         />
       )}
       {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
-      {isEmpty ? (
+      {isInitialLoading ? (
+        <BookmarkListSkeleton count={6} />
+      ) : isEmpty ? (
         <EmptyState
           title="No bookmarks yet"
           description="Add your first bookmark to get started."

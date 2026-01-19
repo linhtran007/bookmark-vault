@@ -55,6 +55,7 @@ interface BookmarksState {
 
 interface BookmarksContextValue {
   state: BookmarksState;
+  isInitialLoading: boolean;
   simulateError: boolean;
   setSimulateError: (value: boolean) => void;
   addBookmark: (bookmark: Omit<Bookmark, "id" | "createdAt">) => AddBookmarkResult;
@@ -237,6 +238,7 @@ function useDebounce<T>(value: T, delay: number): T {
 export function BookmarksProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [simulateError, setSimulateError] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
     const storedBookmarks = getBookmarks();
@@ -246,6 +248,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
         bookmarks: storedBookmarks,
       });
     }
+    setIsInitialLoading(false);
   }, []);
 
   const clearError = useCallback(() => {
@@ -459,6 +462,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       state,
+      isInitialLoading,
       simulateError,
       setSimulateError,
       addBookmark,
@@ -470,6 +474,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      isInitialLoading,
       simulateError,
       addBookmark,
       deleteBookmark,
@@ -510,6 +515,7 @@ export function useBookmarks(searchTerm: string = "") {
     pendingAdds: state.pendingAdds,
     pendingDeletes: state.pendingDeletes,
     isLoading: state.pendingAdds.size > 0 || state.pendingDeletes.size > 0,
+    isInitialLoading: context.isInitialLoading,
     errorMessage: state.error,
     simulateError: context.simulateError,
     setSimulateError: context.setSimulateError,
