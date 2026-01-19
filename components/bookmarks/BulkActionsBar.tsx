@@ -43,16 +43,15 @@ export default function BulkActionsBar({
           <div className="h-4 w-px bg-zinc-300 dark:bg-slate-700" />
           <div className="flex items-center gap-2">
             {selectedCount < visibleCount && (
-              <Button variant="ghost" size="sm" onClick={onSelectAll}>
+              <Button variant="ghost" onClick={onSelectAll}>
                 Select all ({visibleCount})
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={onClearSelection}>
+            <Button variant="ghost" onClick={onClearSelection}>
               Clear selection
             </Button>
             <Button
               variant="ghost"
-              size="sm"
               onClick={onDeleteSelected}
               className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
             >

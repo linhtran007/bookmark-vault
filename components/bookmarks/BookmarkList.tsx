@@ -129,23 +129,6 @@ export default function BookmarkList({
         onDeleteSelected={() => setShowBulkDeleteConfirm(true)}
       />
       <BookmarkListDialogs
-        searchQuery={searchQuery}
-        selectedTag={selectedTag}
-        sortKey={sortKey}
-        tagOptions={tagOptions}
-        resultsCount={filteredBookmarks.length}
-        totalCount={allBookmarksCount}
-        errorMessage={errorMessage}
-        onSearchChange={handleSearchChange}
-        onClearSearch={handleClearSearch}
-        onTagChange={handleTagChange}
-        onSortChange={handleSortChange}
-        searchInputRef={searchInputRef}
-        cardsContainerRef={cardsContainerRef}
-        cards={cards}
-        onAddBookmark={onAddBookmark}
-      />
-      <BookmarkListDialogs
         editTarget={editTarget}
         deleteTarget={deleteTarget}
         onCloseEdit={handleCloseEdit}
@@ -159,7 +142,7 @@ export default function BookmarkList({
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={handleBulkDelete}
-        onCancel={() => setShowBulkDeleteConfirm(false)}
+        onClose={() => setShowBulkDeleteConfirm(false)}
       />
     </div>
   );

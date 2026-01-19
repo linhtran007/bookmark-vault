@@ -1,9 +1,11 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface MarqueeTextProps {
   children: ReactNode;
+  className?: string;
 }
 
 /**
@@ -12,16 +14,15 @@ interface MarqueeTextProps {
  * - On hover, animate scroll if text overflows
  * - Respects prefers-reduced-motion with fallback underline
  */
-export default function MarqueeText({ children }: MarqueeTextProps) {
+export default function MarqueeText({ children, className }: MarqueeTextProps) {
   return (
     <div className="overflow-hidden whitespace-nowrap">
       <span
-        className="
-          inline-block
-          hover:animate-marquee
-          motion-reduce:hover:animate-none
-          motion-reduce:hover:underline
-        "
+        className={cn(
+          "block hover:animate-marquee",
+          "motion-reduce:hover:animate-none motion-reduce:hover:underline",
+          className
+        )}
       >
         {children}
       </span>

@@ -1,11 +1,11 @@
 "use client";
-import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import BookmarkTags from "@/components/bookmarks/BookmarkTags";
-import MarqueeText from "@/components/ui/MarqueeText";
+import DropdownMenu, { DropdownMenuItem } from "@/components/ui/DropdownMenu";
 import { cn } from "@/lib/utils";
 import { Bookmark, BookmarkColor } from "@/lib/types";
 import { toast } from "sonner";
+
 const colorClasses: Record<BookmarkColor, string> = {
   red: "bg-red-500",
   blue: "bg-blue-500",
@@ -80,57 +80,98 @@ export default function BookmarkCard({
           />
         </div>
       )}
+
       <div className="flex items-start justify-between gap-3 pl-7">
-        <div className="min-w-0 space-y-1">
+        <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2">
             {bookmark.color && (
               <span
                 className={cn(
-                  "h-2.5 w-2.5 rounded-full",
+                  "h-2.5 w-2.5 rounded-full flex-shrink-0",
                   colorClasses[bookmark.color]
                 )}
                 aria-hidden="true"
               />
             )}
-            <MarqueeText>
-              <a
-                href={bookmark.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="truncate text-base font-semibold text-slate-900 hover:underline dark:text-slate-100"
-              >
-                {bookmark.title}
-              </a>
-            </MarqueeText>
+            <a
+              href={bookmark.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="truncate text-base font-semibold text-slate-900 hover:underline dark:text-slate-100"
+            >
+              {bookmark.title}
+            </a>
           </div>
           {statusText && <p className="text-xs text-slate-500">{statusText}</p>}
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={handleCopyUrl} disabled={isPending} aria-label="Copy URL">
-            Copy
-          </Button>
-          <Button variant="ghost" onClick={() => onEdit(bookmark)} disabled={isPending}>
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            className="text-red-600 hover:text-red-700"
-            onClick={() => onDelete(bookmark)}
-            disabled={isPending}
+
+        {/* Actions dropdown menu */}
+        <div className="flex-shrink-0">
+          <DropdownMenu
+            trigger={
+              <button
+                type="button"
+                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Actions"
+              >
+                <svg
+                  className="w-5 h-5 text-slate-600 dark:text-slate-400"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                </svg>
+              </button>
+            }
           >
-            Delete
-          </Button>
+            <DropdownMenuItem onClick={handleCopyUrl} disabled={isPending}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                />
+              </svg>
+              Copy URL
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onEdit(bookmark)} disabled={isPending}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                />
+              </svg>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onDelete(bookmark)}
+              disabled={isPending}
+              variant="danger"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenu>
         </div>
       </div>
+
       <a
         href={bookmark.url}
         target="_blank"
         rel="noopener noreferrer"
         className={cn(
           "block truncate text-sm",
-          isPending
-            ? "text-slate-400"
-            : "text-rose-600 hover:text-rose-700"
+          isPending ? "text-slate-400" : "text-rose-600 hover:text-rose-700"
         )}
       >
         {bookmark.url}
