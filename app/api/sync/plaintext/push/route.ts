@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     const results: { recordId: string; version: number }[] = [];
 
     for (const op of operations) {
-      const { recordId, recordType, data, baseVersion, deleted } = op;
+      const { recordId, recordType, data, baseVersion: _baseVersion, deleted } = op;
 
       // Check for existing record
       const existing = await query(

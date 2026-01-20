@@ -14,7 +14,7 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { runOnboardingMigration } from "@/lib/migration";
 import { runSpacesMigration } from "@/lib/spacesMigration";
 import { getSpaces } from "@/lib/spacesStorage";
-import SpacesSidebar, { type SpaceSelection } from "@/components/spaces/SpacesSidebar";
+import SpacesSidebar from "@/components/spaces/SpacesSidebar";
 import { useUiStore } from "@/stores/useUiStore";
 import { useVaultStore } from "@/stores/vault-store";
 import { UnlockScreen } from "@/components/vault/UnlockScreen";
@@ -29,22 +29,22 @@ export default function Home() {
 
   // Read from store
   const selectedSpaceId = useUiStore((s) => s.selectedSpaceId);
-  const searchQuery = useUiStore((s) => s.searchQuery);
-  const selectedTag = useUiStore((s) => s.selectedTag);
-  const sortKey = useUiStore((s) => s.sortKey);
-  const isFormOpen = useUiStore((s) => s.isFormOpen);
-  const isImportExportOpen = useUiStore((s) => s.isImportExportOpen);
-  const isSpacesOpen = useUiStore((s) => s.isSpacesOpen);
+  const _searchQuery = useUiStore((s) => s.searchQuery);
+  const _selectedTag = useUiStore((s) => s.selectedTag);
+  const _sortKey = useUiStore((s) => s.sortKey);
+  const _isFormOpen = useUiStore((s) => s.isFormOpen);
+  const _isImportExportOpen = useUiStore((s) => s.isImportExportOpen);
+  const _isSpacesOpen = useUiStore((s) => s.isSpacesOpen);
 
   // Store actions
   const openForm = useUiStore((s) => s.openForm);
   const openImportExport = useUiStore((s) => s.openImportExport);
   const openSpaces = useUiStore((s) => s.openSpaces);
-  const setSearchQuery = useUiStore((s) => s.setSearchQuery);
-  const closeForm = useUiStore((s) => s.closeForm);
-  const applyPinnedView = useUiStore((s) => s.applyPinnedView);
-  const setSelectedSpaceId = useUiStore((s) => s.setSelectedSpaceId);
-  const closeSpaces = useUiStore((s) => s.closeSpaces);
+  const _setSearchQuery = useUiStore((s) => s.setSearchQuery);
+  const _closeForm = useUiStore((s) => s.closeForm);
+  const _applyPinnedView = useUiStore((s) => s.applyPinnedView);
+  const _setSelectedSpaceId = useUiStore((s) => s.setSelectedSpaceId);
+  const _closeSpaces = useUiStore((s) => s.closeSpaces);
 
   // Vault state
   const { vaultEnvelope, isUnlocked, currentUserId } = useVaultStore();

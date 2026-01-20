@@ -115,8 +115,8 @@ describe('Home Page Integration', () => {
     });
   });
 
-  it('runs migration on mount', () => {
-    const { runOnboardingMigration } = require('@/lib/migration');
+  it('runs migration on mount', async () => {
+    const { runOnboardingMigration } = await import('@/lib/migration');
 
     render(<Home />);
 
