@@ -120,6 +120,11 @@ export interface SyncPushResult {
   conflicts: SyncConflict[];
   errors: string[];
   results?: { recordId: string; version: number }[];
+  checksum?: string;
+  checksumMeta?: {
+    count: number;
+    lastUpdate: string | null;
+  };
 }
 
 export interface SyncPullResult {

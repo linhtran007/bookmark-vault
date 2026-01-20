@@ -27,9 +27,10 @@ import {
   getPendingCount as getPlaintextPendingCount,
   clearOutbox as clearPlaintextOutbox,
 } from '@/lib/plaintext-sync-engine';
-import { getBookmarks, setBookmarks } from '@/lib/storage';
+import { getBookmarks, setBookmarks, getStoredChecksumMeta, saveChecksumMeta, type ChecksumMeta } from '@/lib/storage';
 import { getSpaces, setSpaces } from '@/lib/spacesStorage';
 import { getPinnedViews, savePinnedViews } from '@/lib/pinnedViewsStorage';
+import { calculateCombinedChecksum } from '@/lib/checksum';
 
 // Helper to update local _syncVersion after successful push
 function updateLocalSyncVersions(results: { recordId: string; version: number }[]): void {
@@ -88,12 +89,13 @@ interface UseSyncEngineReturn extends SyncState {
   syncPush: () => Promise<SyncPushResult>;
   syncPull: () => Promise<PlaintextRecord[]>;
   syncFull: () => Promise<{ pushed: number; pulled: number }>;
-  
+  checkAndSync: () => Promise<{ pulled: number; skipped: boolean }>;
+
   // Queue operations
   queueBookmark: (bookmark: Bookmark, version: number, deleted?: boolean) => void;
   queueSpace: (space: Space, version: number, deleted?: boolean) => void;
   queuePinnedView: (view: PinnedView, version: number, deleted?: boolean) => void;
-  
+
   // Utils
   clearPending: () => void;
   refreshPendingCount: () => void;
@@ -282,6 +284,78 @@ export function useSyncEngine(): UseSyncEngineReturn {
     return { pushed: pushResult.synced, pulled: pulled.length };
   }, [syncPush, syncPull]);
 
+  // Check checksum before pulling (optimized sync)
+  const checkAndSync = useCallback(async (): Promise<{ pulled: number; skipped: boolean }> => {
+    if (!canSync()) {
+      return { pulled: 0, skipped: true };
+    }
+
+    if (syncInProgressRef.current) {
+      return { pulled: 0, skipped: true };
+    }
+
+    syncInProgressRef.current = true;
+    setState(prev => ({ ...prev, isSyncing: true, error: null, progress: 0 }));
+
+    try {
+      // Get local checksum metadata
+      const localMeta = getStoredChecksumMeta();
+
+      // Fetch server checksum
+      const response = await fetch('/api/sync/plaintext/checksum');
+      if (!response.ok) {
+        // If checksum endpoint fails, fall back to full pull
+        const records = await syncPull();
+        setState(prev => ({ ...prev, progress: 100 }));
+        return { pulled: records.length, skipped: false };
+      }
+
+      const serverMeta: ChecksumMeta = await response.json();
+
+      // If no local checksum exists, always pull
+      if (!localMeta) {
+        const records = await syncPull();
+        // Save the server checksum after pull
+        saveChecksumMeta(serverMeta);
+        setState(prev => ({ ...prev, progress: 100 }));
+        return { pulled: records.length, skipped: false };
+      }
+
+      // Multi-layer verification: checksum + count + timestamp
+      const checksumMatch = localMeta.checksum === serverMeta.checksum;
+      const countMatch = localMeta.count === serverMeta.count;
+      const timestampValid = localMeta.lastUpdate
+        ? new Date(localMeta.lastUpdate) >= new Date(serverMeta.lastUpdate || 0)
+        : false;
+
+      if (checksumMatch && countMatch && timestampValid) {
+        // All checks pass - data is in sync, skip pull
+        setState(prev => ({ ...prev, progress: 100 }));
+        return { pulled: 0, skipped: true };
+      }
+
+      // Something doesn't match - pull data
+      const records = await syncPull();
+      // Save the new checksum after pull
+      saveChecksumMeta(serverMeta);
+      setState(prev => ({ ...prev, progress: 100 }));
+      return { pulled: records.length, skipped: false };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Checksum check failed';
+      setState(prev => ({ ...prev, error: message }));
+      // On error, fall back to full pull
+      try {
+        const records = await syncPull();
+        return { pulled: records.length, skipped: false };
+      } catch {
+        return { pulled: 0, skipped: false };
+      }
+    } finally {
+      syncInProgressRef.current = false;
+      setState(prev => ({ ...prev, isSyncing: false }));
+    }
+  }, [canSync, syncPull]);
+
   // Queue bookmark for sync
   const queueBookmark = useCallback((
     bookmark: Bookmark,
@@ -345,6 +419,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
     syncPush,
     syncPull,
     syncFull,
+    checkAndSync,
     queueBookmark,
     queueSpace,
     queuePinnedView,

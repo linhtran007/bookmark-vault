@@ -34,6 +34,7 @@ interface SyncContextValue {
   error: string | null;
   isOnline: boolean;
   canSync: boolean;
+  checksumMatched: boolean;
 
   // Sync actions
   syncNow: () => Promise<{ pushed: number; pulled: number }>;
@@ -59,6 +60,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   
   const [isOnline, setIsOnline] = useState(true);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
+  const [checksumMatched, setChecksumMatched] = useState(false);
   
   // Refs for debouncing and intervals
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,17 +109,26 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [isSignedIn, isLoaded, syncEnabled, syncMode, migration]);
 
-  // Pull on mount (initial sync)
+  // Pull on mount (initial sync) - with checksum optimization
   useEffect(() => {
     if (!isSignedIn || !isLoaded || !syncEngine.canSync) return;
     if (hasPulledOnMountRef.current) return;
     if (migration.status === 'conflict-detected' || migration.status === 'migrating') return;
 
     hasPulledOnMountRef.current = true;
-    
-    // Pull latest data on mount
-    syncEngine.syncPull().catch(console.error);
-  }, [isSignedIn, isLoaded, syncEngine.canSync, migration.status, syncEngine.syncPull]);
+
+    // Check checksum before pulling (optimized startup)
+    syncEngine.checkAndSync()
+      .then(({ skipped }) => {
+        setChecksumMatched(skipped);
+        if (skipped) {
+          console.log('✅ Checksum matched - skipped pull, data is in sync');
+        } else {
+          console.log('📥 Checksum differed or first run - pulled data from cloud');
+        }
+      })
+      .catch(console.error);
+  }, [isSignedIn, isLoaded, syncEngine.canSync, migration.status, syncEngine.checkAndSync]);
 
   // Periodic sync
   useEffect(() => {
@@ -205,6 +216,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     error: syncEngine.error,
     isOnline,
     canSync: syncEngine.canSync,
+    checksumMatched,
     syncNow,
     queueBookmarkSync,
     queueSpaceSync,

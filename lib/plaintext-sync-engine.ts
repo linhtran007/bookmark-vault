@@ -1,19 +1,20 @@
 /**
  * Plaintext Sync Engine
- * 
+ *
  * Handles syncing data to cloud without E2E encryption.
  * Data is stored as plaintext JSONB on the server.
  */
 
-import type { 
-  Bookmark, 
-  Space, 
-  PinnedView, 
+import type {
+  Bookmark,
+  Space,
+  PinnedView,
   RecordType,
   PlaintextRecord,
   SyncPushResult,
   SyncConflict,
 } from '@/lib/types';
+import { saveChecksumMeta, type ChecksumMeta } from '@/lib/storage';
 
 // Outbox for pending operations
 const OUTBOX_KEY = 'plaintext-sync-outbox';
@@ -166,6 +167,20 @@ export async function pushPlaintext(
 
     // Success - remove synced operations
     removeFromOutbox(batch.map(op => op.id));
+
+    // Save checksum metadata if returned from server
+    if (result.checksum && result.checksumMeta) {
+      saveChecksumMeta({
+        checksum: result.checksum,
+        count: result.checksumMeta.count,
+        lastUpdate: result.checksumMeta.lastUpdate,
+        perTypeCounts: {
+          bookmarks: 0,
+          spaces: 0,
+          pinnedViews: 0,
+        },
+      });
+    }
 
     return {
       success: true,

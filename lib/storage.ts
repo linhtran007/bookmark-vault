@@ -5,6 +5,8 @@ const STORAGE_KEY = 'bookmark-vault-bookmarks';
 const STORAGE_VERSION = 1;
 const PREVIEW_CACHE_KEY = 'bookmark-vault-previews';
 const PREVIEW_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const CHECKSUM_KEY = 'bookmark-vault-checksum';
+const CHECKSUM_META_KEY = 'bookmark-vault-checksum-meta';
 
 type StoredBookmarks = {
   version: number;
@@ -173,4 +175,56 @@ export function clearStalePreviews(): void {
     }
   }
   savePreviewCache(cleaned);
+}
+
+// ============================================================================
+// CHECKSUM STORAGE
+// ============================================================================
+
+export interface ChecksumMeta {
+  checksum: string;
+  count: number;
+  lastUpdate: string | null;
+  perTypeCounts: {
+    bookmarks: number;
+    spaces: number;
+    pinnedViews: number;
+  };
+}
+
+export function getStoredChecksum(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(CHECKSUM_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function getStoredChecksumMeta(): ChecksumMeta | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(CHECKSUM_META_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as ChecksumMeta;
+  } catch {
+    return null;
+  }
+}
+
+export function saveChecksumMeta(meta: ChecksumMeta): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    localStorage.setItem(CHECKSUM_KEY, meta.checksum);
+    localStorage.setItem(CHECKSUM_META_KEY, JSON.stringify(meta));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function clearChecksum(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(CHECKSUM_KEY);
+  localStorage.removeItem(CHECKSUM_META_KEY);
 }
