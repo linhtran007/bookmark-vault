@@ -3,7 +3,18 @@
 import { useState, useEffect } from 'react';
 import { Modal, Input, Button } from '@/components/ui';
 import { useVaultEnable, type VaultEnableProgress, type DataCounts } from '@/hooks/useVaultEnable';
-import { Shield, Key, Cloud, CheckCircle2, AlertCircle, Loader2, BookmarkIcon, FolderIcon, EyeIcon } from 'lucide-react';
+import {
+  Shield,
+  Key,
+  Cloud,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  BookmarkIcon,
+  FolderIcon,
+  EyeIcon,
+  EyeOffIcon,
+} from 'lucide-react';
 
 interface EnableVaultModalProps {
   isOpen: boolean;
@@ -20,13 +31,18 @@ interface PasswordStrength {
 export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultModalProps) {
   const [passphrase, setPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const [showPassphrase, setShowPassphrase] = useState(false);
+  const [showConfirmPassphrase, setShowConfirmPassphrase] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [_localComplete, setLocalComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarning, setShowWarning] = useState(true);
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
   const [dataCounts, setDataCounts] = useState<DataCounts | null>(null);
   
-  const { enableVault, isEnabling, progress, getDataCounts } = useVaultEnable();
+  const { enableVault, isEnabling, progress, resetProgress, getDataCounts } = useVaultEnable({
+    deletePlaintextCloudAfterEnable: false,
+  });
 
   // Load data counts when modal opens
   useEffect(() => {
@@ -40,12 +56,16 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
     if (!isOpen) {
       setPassphrase('');
       setConfirmPassphrase('');
+      setShowPassphrase(false);
+      setShowConfirmPassphrase(false);
       setAgreed(false);
       setError(null);
       setShowWarning(true);
       setPasswordStrength(null);
+      setLocalComplete(false);
+      resetProgress();
     }
-  }, [isOpen]);
+  }, [isOpen, resetProgress]);
 
   const checkPasswordStrength = (pwd: string): PasswordStrength => {
     let score = 0;
@@ -71,6 +91,10 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
     setError(null);
   };
 
+  const minLengthOk = passphrase.length >= 8;
+  const passphrasesMatch = passphrase.length > 0 && passphrase === confirmPassphrase;
+  const canSubmit = agreed && minLengthOk && passphrasesMatch && !isEnabling;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -92,18 +116,22 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
 
     try {
       await enableVault(passphrase);
+      setLocalComplete(true);
       onComplete();
-      onClose();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to enable vault. Please try again.';
       setError(errorMessage);
     }
   };
 
-  // Show progress UI when enabling
-  if (isEnabling && progress) {
+  const handleClose = () => {
+    onClose();
+  };
+
+  // Show progress UI while we have progress state
+  if (progress) {
     return (
-      <Modal isOpen={isOpen} onClose={() => {}} title="Enabling End-to-End Encryption">
+      <Modal isOpen={isOpen} onClose={progress.phase === 'complete' || progress.phase === 'error' ? handleClose : () => {}} title="Enabling End-to-End Encryption">
         <div className="space-y-6 py-4">
           <ProgressPhase
             phase={progress.phase}
@@ -112,13 +140,21 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
             error={progress.error}
             dataCounts={dataCounts}
           />
+
+          {(progress.phase === 'complete' || progress.phase === 'error') && (
+            <div className="flex justify-end">
+              <Button type="button" onClick={handleClose}>
+                Done
+              </Button>
+            </div>
+          )}
         </div>
       </Modal>
     );
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Enable End-to-End Encryption">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Enable End-to-End Encryption">
       <form onSubmit={handleSubmit} className="space-y-4">
         {showWarning && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 dark:bg-amber-950/30 dark:border-amber-800">
@@ -173,16 +209,27 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
           <label htmlFor="passphrase" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Create Passphrase
           </label>
-          <Input
-            id="passphrase"
-            type="password"
-            value={passphrase}
-            onChange={(e) => handlePassphraseChange(e.target.value)}
-            placeholder="At least 8 characters, mix of upper/lower/numbers"
-            className="w-full"
-            autoFocus
-            disabled={isEnabling}
-          />
+          <div className="relative">
+            <Input
+              id="passphrase"
+              type={showPassphrase ? 'text' : 'password'}
+              value={passphrase}
+              onChange={(e) => handlePassphraseChange(e.target.value)}
+              placeholder="At least 8 characters, mix of upper/lower/numbers"
+              className="w-full pr-10"
+              autoFocus
+              disabled={isEnabling}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassphrase((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              aria-label={showPassphrase ? 'Hide passphrase' : 'Show passphrase'}
+              disabled={isEnabling}
+            >
+              {showPassphrase ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+            </button>
+          </div>
           {passwordStrength && passphrase.length > 0 && (
             <div className="mt-2">
               <div className="flex items-center justify-between">
@@ -210,15 +257,35 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
           <label htmlFor="confirmPassphrase" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
             Confirm Passphrase
           </label>
-          <Input
-            id="confirmPassphrase"
-            type="password"
-            value={confirmPassphrase}
-            onChange={(e) => setConfirmPassphrase(e.target.value)}
-            placeholder="Re-enter passphrase"
-            className="w-full"
-            disabled={isEnabling}
-          />
+          <div className="relative">
+            <Input
+              id="confirmPassphrase"
+              type={showConfirmPassphrase ? 'text' : 'password'}
+              value={confirmPassphrase}
+              onChange={(e) => setConfirmPassphrase(e.target.value)}
+              placeholder="Re-enter passphrase"
+              className="w-full pr-10"
+              disabled={isEnabling}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassphrase((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              aria-label={showConfirmPassphrase ? 'Hide passphrase confirmation' : 'Show passphrase confirmation'}
+              disabled={isEnabling}
+            >
+              {showConfirmPassphrase ? (
+                <EyeOffIcon className="w-4 h-4" />
+              ) : (
+                <EyeIcon className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          {confirmPassphrase.length > 0 && !passphrasesMatch && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              Passphrases don&apos;t match
+            </p>
+          )}
         </div>
 
         <label className="flex items-start gap-2 text-sm cursor-pointer">
@@ -253,7 +320,7 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
           <Button
             type="submit"
             className="flex-1 gap-2"
-            disabled={!agreed || isEnabling}
+            disabled={!canSubmit}
           >
             <Shield className="w-4 h-4" />
             Enable & Sync

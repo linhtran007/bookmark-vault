@@ -12,7 +12,7 @@ interface UseSyncEngineReturn {
   syncPush: () => Promise<SyncResult>;
   syncPull: () => Promise<PullResult>;
   syncFull: () => Promise<{ push: SyncResult; pull: PullResult }>;
-  queueOperation: (operation: { recordId: string; baseVersion: number; ciphertext: string; deleted: boolean }) => void;
+  queueOperation: (operation: { recordId: string; recordType: import('@/lib/types').RecordType; baseVersion: number; ciphertext: string; deleted: boolean }) => void;
 }
 
 export function useSyncEngine(): UseSyncEngineReturn {
@@ -73,7 +73,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
     syncPush: useCallback(() => handleSync(() => syncPush()), [handleSync]),
     syncPull: useCallback(() => handleSync(() => syncPull()), [handleSync]),
     syncFull: useCallback(() => handleSync(() => syncFull()), [handleSync]),
-    queueOperation: useCallback((op: { recordId: string; baseVersion: number; ciphertext: string; deleted: boolean }) => {
+    queueOperation: useCallback((op: { recordId: string; recordType: import('@/lib/types').RecordType; baseVersion: number; ciphertext: string; deleted: boolean }) => {
       queueOperation(op);
       refreshPendingCount();
     }, [refreshPendingCount]),

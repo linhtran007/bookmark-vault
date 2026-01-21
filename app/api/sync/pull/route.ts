@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       records: records.map((r) => ({
         recordId: r.record_id,
         recordType: r.record_type || 'bookmark', // Default for backward compatibility
-        ciphertext: r.ciphertext?.toString('base64') || null,
+        ciphertext: r.ciphertext ? r.ciphertext.toString('utf8') : null,
         version: r.version,
         deleted: r.deleted,
         updatedAt: r.updated_at,
@@ -61,7 +61,13 @@ export async function GET(req: NextRequest) {
       hasMore,
     });
   } catch (error) {
-    console.error('Sync pull error:', error);
+    console.error('Sync pull error:', {
+      error,
+      userId,
+      cursor,
+      recordType,
+      limit,
+    });
     return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
   }
 }

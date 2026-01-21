@@ -1,5 +1,6 @@
 import { getOutbox, addToOutbox, removeFromOutbox, updateOutboxItem, clearOutbox, type SyncOperation } from './sync-outbox';
 
+
 export interface SyncResult {
   success: boolean;
   pushed: number;
@@ -9,7 +10,14 @@ export interface SyncResult {
 
 export interface PullResult {
   success: boolean;
-  records: { recordId: string; ciphertext: string; version: number; deleted: boolean; updatedAt: string }[];
+  records: {
+    recordId: string;
+    recordType: import('@/lib/types').RecordType;
+    ciphertext: string;
+    version: number;
+    deleted: boolean;
+    updatedAt: string;
+  }[];
   nextCursor: string | null;
   hasMore: boolean;
   error?: string;
@@ -90,11 +98,23 @@ export async function syncPush(): Promise<SyncResult> {
     return { success: true, pushed: 0, conflicts: [] };
   }
 
+  // De-dupe by record key (last write wins) to avoid submitting
+  // multiple baseVersion=0 ops for the same record in one push.
+  const latestByKey = new Map<string, SyncOperation>();
+  for (const op of outbox) {
+    const key = `${op.recordType}:${op.recordId}`;
+    const existing = latestByKey.get(key);
+    if (!existing || op.createdAt >= existing.createdAt) {
+      latestByKey.set(key, op);
+    }
+  }
+  const dedupedOutbox = Array.from(latestByKey.values()).sort((a, b) => a.createdAt - b.createdAt);
+
   let allPushed = 0;
   const allConflicts: { recordId: string; currentVersion: number }[] = [];
 
-  for (let i = 0; i < outbox.length; i += MAX_BATCH_SIZE) {
-    const batch = outbox.slice(i, i + MAX_BATCH_SIZE);
+  for (let i = 0; i < dedupedOutbox.length; i += MAX_BATCH_SIZE) {
+    const batch = dedupedOutbox.slice(i, i + MAX_BATCH_SIZE);
     const result = await pushOperations(batch);
     allPushed += result.pushed;
     allConflicts.push(...result.conflicts);
@@ -108,10 +128,13 @@ export async function syncPush(): Promise<SyncResult> {
   return { success: true, pushed: allPushed, conflicts: allConflicts };
 }
 
-export async function syncPull(onProgress?: (records: number, hasMore: boolean) => void): Promise<PullResult> {
+export async function syncPull(
+  onProgress?: (records: number, hasMore: boolean) => void
+): Promise<PullResult> {
   let cursor: string | undefined;
   let totalRecords = 0;
   let hasMore = true;
+  const allRecords: PullResult['records'] = [];
 
   while (hasMore) {
     const result = await pullRecords(cursor);
@@ -119,10 +142,14 @@ export async function syncPull(onProgress?: (records: number, hasMore: boolean) 
       return { ...result, error: result.error };
     }
 
+    allRecords.push(...result.records);
+
+    // Best-effort broadcasting for legacy listeners.
     for (const record of result.records) {
       if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
         const channel = new BroadcastChannel('vault-sync');
         channel.postMessage({ type: 'RECORD_RECEIVED', record });
+        channel.close();
       }
     }
 
@@ -130,14 +157,12 @@ export async function syncPull(onProgress?: (records: number, hasMore: boolean) 
     hasMore = result.hasMore;
     cursor = result.nextCursor || undefined;
 
-    if (onProgress) {
-      onProgress(totalRecords, hasMore);
-    }
+    onProgress?.(totalRecords, hasMore);
   }
 
   return {
     success: true,
-    records: [],
+    records: allRecords,
     nextCursor: null,
     hasMore: false,
   };
@@ -153,6 +178,7 @@ export async function syncFull(): Promise<{ push: SyncResult; pull: PullResult }
 export function queueOperation(operation: Omit<SyncOperation, 'id' | 'createdAt' | 'retries'>): void {
   addToOutbox(operation);
 }
+
 
 export function getPendingCount(): number {
   return getOutbox().length;

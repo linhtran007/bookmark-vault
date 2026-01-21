@@ -8,6 +8,15 @@ const ENVELOPE_STORAGE_PREFIX = 'vault-envelope-';
 const SESSION_STORAGE_KEY = 'vault-session';
 const OLD_VAULT_STORAGE_KEY = 'vault-storage'; // Legacy key to clean up
 
+// Encrypted storage keys to clear when envelope changes
+const ENCRYPTED_STORAGE_KEYS = [
+  'bookmark-vault-encrypted',
+  'bookmark-vault-encrypted-spaces',
+  'bookmark-vault-encrypted-pinned-views',
+  'bookmark-vault-pulled-ciphertext',
+  'vault-sync-outbox',
+];
+
 // Helper to get envelope storage key for a user
 function getEnvelopeKey(userId: string): string {
   return `${ENVELOPE_STORAGE_PREFIX}${userId}`;
@@ -35,6 +44,24 @@ function cleanupOldVaultStorage(): void {
     storage.removeItem(OLD_VAULT_STORAGE_KEY);
     console.log('Cleaned up legacy vault-storage');
   }
+}
+
+// Check if two envelopes are the same (by comparing wrappedKey and salt)
+function envelopesMatch(a: VaultKeyEnvelope | null, b: VaultKeyEnvelope | null): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return a.wrappedKey === b.wrappedKey && a.salt === b.salt;
+}
+
+// Clear all encrypted storage caches (call when envelope changes)
+function clearEncryptedCaches(): void {
+  const storage = getLocalStorage();
+  if (!storage) return;
+  
+  for (const key of ENCRYPTED_STORAGE_KEYS) {
+    storage.removeItem(key);
+  }
+  console.log('[vault-store] Cleared encrypted caches due to envelope change');
 }
 
 // Load envelope from localStorage for a specific user
@@ -233,3 +260,73 @@ export const useVaultStore = create<VaultState>()((set, get) => {
     },
   };
 });
+
+/**
+ * Fetches the vault envelope from the server and updates local state.
+ * 
+ * This is the source of truth for multi-device support:
+ * - Fetches envelope from server
+ * - Compares with local envelope
+ * - If different, clears stale encrypted caches (they used old key)
+ * - Saves server envelope to localStorage
+ * - Updates Zustand state
+ * 
+ * @returns The envelope from server, or null if vault not enabled
+ */
+export async function fetchEnvelopeFromServer(userId: string): Promise<VaultKeyEnvelope | null> {
+  try {
+    const response = await fetch('/api/vault');
+    if (!response.ok) {
+      console.error('[vault-store] Failed to fetch vault from server:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    if (!data.enabled || !data.envelope) {
+      // No vault on server
+      return null;
+    }
+
+    // Validate envelope format - must be base64 strings, not Buffer objects
+    // This protects against server serialization bugs
+    if (typeof data.envelope.wrappedKey !== 'string' || typeof data.envelope.salt !== 'string') {
+      console.error('[vault-store] Server returned invalid envelope format (expected base64 strings):', {
+        wrappedKeyType: typeof data.envelope.wrappedKey,
+        saltType: typeof data.envelope.salt,
+      });
+      return null;
+    }
+
+    const serverEnvelope: VaultKeyEnvelope = {
+      wrappedKey: data.envelope.wrappedKey,
+      salt: data.envelope.salt,
+      kdfParams: data.envelope.kdfParams,
+      version: 1, // Always 1 for current implementation
+    };
+
+    // Compare with local envelope
+    const localEnvelope = loadEnvelope(userId);
+    
+    if (!envelopesMatch(localEnvelope, serverEnvelope)) {
+      console.log('[vault-store] Envelope changed, clearing stale encrypted caches');
+      // Envelope is different - clear any locally cached encrypted data
+      // since it was encrypted with a different key
+      clearEncryptedCaches();
+      
+      // Also lock the vault since the key changed
+      clearSessionState();
+    }
+
+    // Save server envelope as the new local envelope
+    saveEnvelope(userId, serverEnvelope);
+
+    // Update Zustand state
+    useVaultStore.setState({ vaultEnvelope: serverEnvelope });
+
+    return serverEnvelope;
+  } catch (error) {
+    console.error('[vault-store] Error fetching envelope from server:', error);
+    return null;
+  }
+}

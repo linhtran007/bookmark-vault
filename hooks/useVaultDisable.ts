@@ -151,7 +151,7 @@ export function useVaultDisable() {
       }
 
       // Push plaintext to server
-      const pushResult = await pushPlaintext(100);
+      let pushResult = await pushPlaintext(100);
       setProgress({ phase: 'uploading', uploadProgress: 75 });
 
       if (!pushResult.success && pushResult.errors.length > 0) {
@@ -160,7 +160,7 @@ export function useVaultDisable() {
 
       // Continue pushing if there are remaining items
       while (pushResult.synced < totalItems) {
-        await pushPlaintext(100);
+        pushResult = await pushPlaintext(100);
       }
 
       setProgress({ phase: 'uploading', uploadProgress: 100 });

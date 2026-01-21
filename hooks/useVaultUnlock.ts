@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { useVaultStore } from '@/stores/vault-store';
 import { unwrapVaultKeyFromEnvelope } from '@/lib/crypto';
 import { loadAllEncryptedRecords, loadAndDecryptBookmark } from '@/lib/encrypted-storage';
+import { decryptAndApplyPulledE2eRecords } from '@/lib/decrypt-and-apply';
 
 export function useVaultUnlock() {
   const { setUnlocked, vaultEnvelope } = useVaultStore();
@@ -22,6 +23,9 @@ export function useVaultUnlock() {
         await loadAndDecryptBookmark(testRecord.recordId, vaultKey);
       }
     }
+
+    // Apply any server-pulled ciphertext that was cached while locked.
+    await decryptAndApplyPulledE2eRecords(vaultKey);
 
     setUnlocked(true, vaultKey);
   }, [vaultEnvelope, setUnlocked]);

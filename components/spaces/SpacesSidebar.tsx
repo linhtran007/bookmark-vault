@@ -13,7 +13,6 @@ import {
   PERSONAL_SPACE_ID,
   getSpaces,
 } from "@/lib/spacesStorage";
-import { getPinnedViews } from "@/lib/pinnedViewsStorage";
 import { usePinnedViews } from "@/hooks/usePinnedViews";
 import type { PinnedView, Space } from "@/lib/types";
 import { useUiStore } from "@/stores/useUiStore";
@@ -85,10 +84,8 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   const [spacesVersion, setSpacesVersion] = useState(0);
-  const [pinnedVersion, setPinnedVersion] = useState(0);
 
   const [spaces, setSpaces] = useState<Space[]>([]);
-  const [pinnedViews, setPinnedViews] = useState<PinnedView[]>([]);
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [isSpaceFormOpen, setIsSpaceFormOpen] = useState(false);
@@ -99,7 +96,16 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
 
   const { allBookmarks, moveBookmarksToSpace } = useBookmarks();
   const { addSpace, updateSpace, deleteSpace } = useSpaces();
-  const { addPinnedView, deletePinnedView } = usePinnedViews();
+  const { pinnedViews: allPinnedViews, addPinnedView, deletePinnedView, getPinnedViewsForSpace } = usePinnedViews();
+
+  // Filter pinned views by selected space - uses context which auto-refreshes on sync
+  const pinnedViews = useMemo(() => {
+    if (selectedSpaceId === "all") {
+      // When "All spaces" is selected, show ALL pinned views across all spaces
+      return allPinnedViews;
+    }
+    return getPinnedViewsForSpace(selectedSpaceId);
+  }, [allPinnedViews, selectedSpaceId, getPinnedViewsForSpace]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -109,11 +115,6 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
     if (!isHydrated) return;
     setSpaces(getSpaces());
   }, [isHydrated, spacesVersion]);
-
-  useEffect(() => {
-    if (!isHydrated) return;
-    setPinnedViews(getPinnedViews(selectedSpaceId));
-  }, [isHydrated, pinnedVersion, selectedSpaceId]);
 
   const bookmarkCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -202,13 +203,12 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
       return;
     }
 
-    for (const view of getPinnedViews(deleteTargetId)) {
+    for (const view of getPinnedViewsForSpace(deleteTargetId)) {
       deletePinnedView(view.id);
     }
 
     deleteSpace(deleteTargetId);
     setSpacesVersion((v) => v + 1);
-    setPinnedVersion((v) => v + 1);
 
     if (selectedSpaceId === deleteTargetId) {
       setSelectedSpaceId("all");
@@ -229,12 +229,10 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
       tag: selectedTag,
       sortKey,
     });
-    setPinnedVersion((v) => v + 1);
   };
 
   const handleDeletePinnedView = (id: string) => {
     deletePinnedView(id);
-    setPinnedVersion((v) => v + 1);
   };
 
   if (!isHydrated) {

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@clerk/nextjs';
 import Button from '@/components/ui/Button';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useVaultStore } from '@/stores/vault-store';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
 import { useSyncEngine } from '@/hooks/useSyncEngineUnified';
@@ -80,6 +81,8 @@ export function SyncModeToggle() {
   const [pendingMode, setPendingMode] = useState<SyncMode | null>(null);
   const [isOnline, setIsOnline] = useState(true);
 
+  const [showMigrateDialog, setShowMigrateDialog] = useState(false);
+
   // Load settings from server on mount
   useEffect(() => {
     if (isSignedIn) {
@@ -104,15 +107,17 @@ export function SyncModeToggle() {
   }, []);
 
   const handleModeSelect = useCallback(async (mode: SyncMode) => {
-    // If selecting E2E and vault not enabled, show enable modal
-    if (mode === 'e2e' && !vaultEnvelope) {
-      setPendingMode(mode);
-      setShowEnableModal(true);
+    // Switching to E2E mode always requires creating a new passphrase.
+    // This ensures a fresh vault key and avoids issues with stale/corrupted envelopes.
+    if (mode === 'e2e') {
+      // Always show migrate dialog → EnableVaultModal for new passphrase
+      setPendingMode('e2e');
+      setShowMigrateDialog(true);
       return;
     }
 
-    // If switching FROM E2E to another mode, show disable dialog
-    if (syncMode === 'e2e' && mode !== 'e2e' && vaultEnvelope) {
+    // If switching FROM E2E to another mode, show disable dialog (requires passphrase)
+    if (syncMode === 'e2e') {
       setPendingMode(mode);
       setShowDisableDialog(true);
       return;
@@ -123,18 +128,43 @@ export function SyncModeToggle() {
     if (isSignedIn) {
       await saveToServer();
     }
-  }, [syncMode, vaultEnvelope, isSignedIn, setSyncMode, saveToServer]);
+  }, [syncMode, isSignedIn, setSyncMode, saveToServer]);
 
   const handleEnableComplete = useCallback(async () => {
-    setShowEnableModal(false);
-    if (pendingMode) {
-      setSyncMode(pendingMode);
-      setPendingMode(null);
-      if (isSignedIn) {
-        await saveToServer();
+    // Keep the modal open so the user can see progress + confirm completion.
+    // Final mode switch happens on modal close ("Done").
+  }, []);
+
+  const handleMigrateToE2E = useCallback(async () => {
+    // Overwrite strategy: wipe encrypted dataset first to avoid version conflicts,
+    // then create a new vault (via EnableVaultModal) and push fresh ciphertext.
+    setShowMigrateDialog(false);
+
+    if (!isSignedIn) return;
+
+    try {
+      const res = await fetch('/api/vault/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-encrypted' }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to clear encrypted cloud data');
       }
+
+      // Clear any old local encrypted outbox before generating new ciphertext.
+      // (The enable flow will enqueue fresh ops.)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('vault-sync-outbox');
+      }
+
+      setShowEnableModal(true);
+    } catch (error) {
+      console.error('[sync-mode-toggle] migrate to e2e failed', error);
     }
-  }, [pendingMode, isSignedIn, setSyncMode, saveToServer]);
+  }, [isSignedIn]);
 
   const handleDisableConfirm = useCallback(async () => {
     setShowDisableDialog(false);
@@ -174,6 +204,7 @@ export function SyncModeToggle() {
   }
 
   return (
+
     <div className="space-y-6">
       {/* Sync Mode Selection */}
       <div className="space-y-3">
@@ -304,12 +335,29 @@ export function SyncModeToggle() {
         </div>
       )}
 
+      {/* Migrate confirm */}
+      <ConfirmDialog
+        isOpen={showMigrateDialog}
+        title="Migrate Cloud Sync to End-to-End Encryption?"
+        description="This will overwrite any existing encrypted cloud data. Your plaintext cloud data will remain unchanged."
+        confirmLabel="Migrate & Overwrite Vault"
+        cancelLabel="Cancel"
+        variant="warning"
+        onConfirm={handleMigrateToE2E}
+        onClose={() => {
+          setShowMigrateDialog(false);
+          setPendingMode(null);
+        }}
+      />
+
       {/* Modals */}
       <EnableVaultModal
         isOpen={showEnableModal}
         onClose={() => {
           setShowEnableModal(false);
           setPendingMode(null);
+          // NOTE: Sync mode is now set to 'e2e' in useVaultEnable.ts after enable succeeds,
+          // so we don't need to do it here anymore.
         }}
         onComplete={handleEnableComplete}
       />

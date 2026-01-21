@@ -11,6 +11,7 @@ export function useSyncIntegration() {
 
   const queueSyncOperation = useCallback((
     recordId: string,
+    recordType: import('@/lib/types').RecordType,
     baseVersion: number,
     ciphertext: string,
     deleted: boolean
@@ -19,6 +20,7 @@ export function useSyncIntegration() {
 
     queueOperation({
       recordId,
+      recordType,
       baseVersion,
       ciphertext,
       deleted,

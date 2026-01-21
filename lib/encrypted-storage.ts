@@ -5,6 +5,9 @@ const ENCRYPTED_STORAGE_KEY = 'bookmark-vault-encrypted';
 const ENCRYPTED_SPACES_KEY = 'bookmark-vault-encrypted-spaces';
 const ENCRYPTED_PINNED_VIEWS_KEY = 'bookmark-vault-encrypted-pinned-views';
 
+// Background pull cache (ciphertext from server, stored while locked).
+const PULLED_CIPHERTEXT_KEY = 'bookmark-vault-pulled-ciphertext';
+
 export interface StoredEncryptedRecord {
   recordId: string;
   recordType: RecordType;
@@ -14,6 +17,15 @@ export interface StoredEncryptedRecord {
   version: number;
   deleted: boolean;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface PulledCiphertextRecord {
+  recordId: string;
+  recordType: RecordType;
+  ciphertext: string;
+  version: number;
+  deleted: boolean;
   updatedAt: string;
 }
 
@@ -221,6 +233,45 @@ export async function loadAndDecryptAllPinnedViews(
   return views;
 }
 
+export function loadPulledCiphertextRecords(): PulledCiphertextRecord[] {
+  if (typeof window === 'undefined') return [];
+  const raw = localStorage.getItem(PULLED_CIPHERTEXT_KEY);
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function savePulledCiphertextRecords(records: PulledCiphertextRecord[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PULLED_CIPHERTEXT_KEY, JSON.stringify(records));
+}
+
+export function mergePulledCiphertextRecords(incoming: PulledCiphertextRecord[]): void {
+  if (typeof window === 'undefined') return;
+  const existing = loadPulledCiphertextRecords();
+  const byKey = new Map(existing.map((r) => [`${r.recordType}:${r.recordId}`, r]));
+
+  for (const record of incoming) {
+    const key = `${record.recordType}:${record.recordId}`;
+    const prev = byKey.get(key);
+    if (!prev || record.version > prev.version) {
+      byKey.set(key, record);
+    }
+  }
+
+  savePulledCiphertextRecords(Array.from(byKey.values()));
+}
+
+export function clearPulledCiphertextRecords(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(PULLED_CIPHERTEXT_KEY);
+}
+
 export function hasEncryptedStorage(): boolean {
   if (typeof window === 'undefined') return false;
   const raw = localStorage.getItem(ENCRYPTED_STORAGE_KEY);
@@ -299,4 +350,17 @@ export function clearPlaintextStorage(): void {
   localStorage.removeItem('bookmark-vault-spaces');
   localStorage.removeItem('bookmark-vault-pinned-views');
   localStorage.removeItem('bookmark-vault-previews');
+}
+
+/**
+ * Clears all encrypted storage caches.
+ * Call this when creating a new vault to ensure no stale data
+ * encrypted with an old key remains.
+ */
+export function clearAllEncryptedStorage(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(ENCRYPTED_STORAGE_KEY);
+  localStorage.removeItem(ENCRYPTED_SPACES_KEY);
+  localStorage.removeItem(ENCRYPTED_PINNED_VIEWS_KEY);
+  localStorage.removeItem(PULLED_CIPHERTEXT_KEY);
 }

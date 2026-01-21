@@ -1,6 +1,9 @@
+import type { RecordType } from '@/lib/types';
+
 export interface SyncOperation {
   id: string;
   recordId: string;
+  recordType: RecordType;
   baseVersion: number;
   ciphertext: string;
   deleted: boolean;
@@ -10,10 +13,52 @@ export interface SyncOperation {
 
 const OUTBOX_KEY = 'vault-sync-outbox';
 
+function normalizeOutboxItem(op: any): SyncOperation | null {
+  if (!op || typeof op !== 'object') return null;
+
+  const recordId = typeof op.recordId === 'string' ? op.recordId : null;
+  const recordType = (op.recordType as RecordType | undefined) ?? 'bookmark';
+  const baseVersion = typeof op.baseVersion === 'number' ? op.baseVersion : 0;
+  const ciphertext = typeof op.ciphertext === 'string' ? op.ciphertext : null;
+  const deleted = typeof op.deleted === 'boolean' ? op.deleted : false;
+
+  const id = typeof op.id === 'string' ? op.id : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const createdAt = typeof op.createdAt === 'number' ? op.createdAt : Date.now();
+  const retries = typeof op.retries === 'number' ? op.retries : 0;
+
+  if (!recordId || !ciphertext) return null;
+
+  return {
+    id,
+    recordId,
+    recordType,
+    baseVersion,
+    ciphertext,
+    deleted,
+    createdAt,
+    retries,
+  };
+}
+
 export function getOutbox(): SyncOperation[] {
   if (typeof window === 'undefined') return [];
   const data = localStorage.getItem(OUTBOX_KEY);
-  return data ? JSON.parse(data) : [];
+  if (!data) return [];
+
+  try {
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) return [];
+
+    const normalized = parsed.map(normalizeOutboxItem).filter(Boolean) as SyncOperation[];
+
+    if (normalized.length !== parsed.length) {
+      saveOutbox(normalized);
+    }
+
+    return normalized;
+  } catch {
+    return [];
+  }
 }
 
 function saveOutbox(outbox: SyncOperation[]): void {

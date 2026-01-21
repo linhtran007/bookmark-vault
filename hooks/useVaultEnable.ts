@@ -8,6 +8,7 @@ import {
   migrateAllToEncrypted, 
   rollbackMigration,
   clearPlaintextStorage,
+  clearAllEncryptedStorage,
   type MigrationProgress,
   type StoredEncryptedRecord,
 } from '@/lib/encrypted-storage';
@@ -16,7 +17,7 @@ import { getSpaces } from '@/lib/spacesStorage';
 import { getPinnedViews } from '@/lib/pinnedViewsStorage';
 import { syncPush } from '@/lib/sync-engine';
 import { addToOutbox } from '@/lib/sync-outbox';
-import type { Bookmark, Space, PinnedView } from '@/lib/types';
+import type { RecordType } from '@/lib/types';
 
 export interface VaultEnableProgress {
   phase: 'generating' | 'encrypting' | 'syncing' | 'cleanup' | 'complete' | 'error';
@@ -32,11 +33,16 @@ export interface DataCounts {
   total: number;
 }
 
-export function useVaultEnable() {
+export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boolean }) {
   const [isEnabling, setIsEnabling] = useState(false);
   const [progress, setProgress] = useState<VaultEnableProgress | null>(null);
-  const { setEnvelope, setUnlocked } = useVaultStore();
-  const { setSyncMode, saveToServer } = useSyncSettingsStore();
+  const { setEnvelope, setUnlocked, clearEnvelope } = useVaultStore();
+
+  const deletePlaintextCloudAfterEnable = options?.deletePlaintextCloudAfterEnable ?? false;
+
+  const resetProgress = useCallback(() => {
+    setProgress(null);
+  }, []);
 
   // Get current data counts (read directly from storage)
   const getDataCounts = useCallback((): DataCounts => {
@@ -59,6 +65,16 @@ export function useVaultEnable() {
     let encryptedRecords: StoredEncryptedRecord[] = [];
 
     try {
+      // CRITICAL: Clear any stale data from previous vault attempts.
+      // This includes:
+      // - Old envelope (if switching from a previous E2E setup)
+      // - Local encrypted records (encrypted with old key)
+      // - Pulled ciphertext cache (from server, encrypted with old key)
+      // - Sync outbox entries (stale operations)
+      // This ensures a clean slate for the new vault and prevents decryption errors.
+      clearEnvelope();
+      clearAllEncryptedStorage();
+      
       // Phase 1: Generate vault key and create envelope
       vaultKey = await crypto.generateVaultKey();
       const envelope = await crypto.createKeyEnvelope(passphrase, vaultKey);
@@ -76,6 +92,13 @@ export function useVaultEnable() {
       const bookmarks = getBookmarks();
       const spaces = getSpaces();
       const pinnedViews = getPinnedViews();
+
+      console.log('[vault-enable] Data to encrypt:', {
+        bookmarks: bookmarks.length,
+        spaces: spaces.length,
+        pinnedViews: pinnedViews.length,
+        pinnedViewsData: pinnedViews,
+      });
 
       encryptedRecords = await migrateAllToEncrypted(
         {
@@ -105,19 +128,62 @@ export function useVaultEnable() {
       setEnvelope(envelope);
       setUnlocked(true, vaultKey);
 
-      // Update sync settings to E2E mode
+      // Set sync mode to e2e and save to server immediately.
+      // This prevents the race condition where loadFromServer() in SyncModeToggle
+      // could overwrite the mode with the old 'plaintext' value before the modal closes.
+      const { setSyncMode, saveToServer } = useSyncSettingsStore.getState();
       setSyncMode('e2e');
-      await saveToServer();
+      try {
+        await saveToServer();
+      } catch (err) {
+        console.warn('[vault-enable] Failed to save sync settings to server:', err);
+        // Continue anyway - local state is correct, will sync on next opportunity
+      }
 
-      // Phase 4: Queue all encrypted records for sync
+      // NOTE: Sync mode is set to 'e2e' above. The settings UI no longer needs to
+      // finalize the mode switch on modal close.
+
+      // Phase 4: Delete any existing encrypted records on server.
+      // CRITICAL: Old records were encrypted with a different vault key and cannot
+      // be decrypted with the new key. We must delete them before pushing new ones.
       setProgress({ phase: 'syncing', syncProgress: 0 });
+
+      const deleteEncryptedRes = await fetch('/api/vault/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-encrypted' }),
+      });
+
+      if (!deleteEncryptedRes.ok) {
+        console.warn('Failed to delete existing encrypted records from server');
+      }
+
+      // Clear any stale outbox entries from previous vault attempts
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('vault-sync-outbox');
+      }
+
+      // Phase 5: Queue all encrypted records for sync
       
       for (let i = 0; i < encryptedRecords.length; i++) {
         const record = encryptedRecords[i];
+        // Server expects ciphertext to contain iv+tag metadata.
+        // Local encrypted storage keeps `ciphertext`, `iv`, `tag` split.
+        const ivBytes = crypto.base64ToArray(record.iv);
+        const ciphertextBytes = crypto.base64ToArray(record.ciphertext);
+        const tagBytes = crypto.base64ToArray(record.tag);
+
+        const combined = new Uint8Array(ivBytes.length + ciphertextBytes.length + tagBytes.length);
+        combined.set(ivBytes, 0);
+        combined.set(ciphertextBytes, ivBytes.length);
+        combined.set(tagBytes, ivBytes.length + ciphertextBytes.length);
+
+        // Server uses last-write-wins, baseVersion is ignored
         addToOutbox({
           recordId: record.recordId,
-          baseVersion: 0, // New record
-          ciphertext: record.ciphertext,
+          recordType: record.recordType as RecordType,
+          baseVersion: 0,
+          ciphertext: crypto.arrayToBase64(combined),
           deleted: false,
         });
         setProgress({ 
@@ -134,9 +200,45 @@ export function useVaultEnable() {
         console.warn('Some records had conflicts during initial sync:', pushResult.conflicts);
       }
 
-      // Phase 5: Cleanup plaintext storage
-      setProgress({ phase: 'cleanup' });
-      clearPlaintextStorage();
+       // Phase 6: Optional cleanup server plaintext records
+       setProgress({ phase: 'cleanup' });
+
+       if (deletePlaintextCloudAfterEnable) {
+         // Delete plaintext dataset only when explicitly requested.
+         const deletePlaintextRes = await fetch('/api/vault/disable', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ action: 'delete-plaintext' }),
+         });
+
+         if (!deletePlaintextRes.ok) {
+           console.warn('Failed to delete plaintext records from server');
+         }
+       }
+
+       // IMPORTANT: before clearing local plaintext storage, verify we can decrypt
+       // at least one encrypted record we just uploaded.
+       if (encryptedRecords.length > 0) {
+         try {
+           const key = await crypto.importVaultKey(vaultKey);
+           const sample = encryptedRecords[0];
+           const ivBytes = crypto.base64ToArray(sample.iv);
+           const ciphertextBytes = crypto.base64ToArray(sample.ciphertext);
+           const tagBytes = crypto.base64ToArray(sample.tag);
+           const decrypted = await crypto.decryptData(
+             { iv: ivBytes, ciphertext: ciphertextBytes, tag: tagBytes },
+             key
+           );
+           JSON.parse(new TextDecoder().decode(decrypted));
+         } catch (error) {
+           console.error('[vault-enable] sanity decrypt failed; aborting cleanup', error);
+           throw new Error('Vault enabled, but verification decryption failed. Aborting cleanup.');
+         }
+       }
+
+       // Phase 7: Cleanup client plaintext storage
+       clearPlaintextStorage();
+
 
       // Done!
       setProgress({ phase: 'complete' });
@@ -150,12 +252,13 @@ export function useVaultEnable() {
     } finally {
       setIsEnabling(false);
     }
-  }, [setEnvelope, setUnlocked, setSyncMode, saveToServer]);
+  }, [setEnvelope, setUnlocked, clearEnvelope, deletePlaintextCloudAfterEnable]);
 
   return { 
     enableVault, 
     isEnabling, 
     progress,
+    resetProgress,
     getDataCounts,
   };
 }

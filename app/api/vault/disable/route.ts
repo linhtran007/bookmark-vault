@@ -61,6 +61,19 @@ export async function POST(req: Request) {
         });
       }
 
+      case 'delete-plaintext': {
+        // Delete all plaintext records (used after enabling E2E successfully)
+        const result = await query(
+          'DELETE FROM records WHERE user_id = $1 AND encrypted = false RETURNING id',
+          [userId]
+        );
+
+        return NextResponse.json({
+          success: true,
+          deletedCount: result.length,
+        });
+      }
+
       case 'delete-vault': {
         // Delete the vault itself
         const result = await query(

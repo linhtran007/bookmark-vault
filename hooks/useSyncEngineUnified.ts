@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { BlockedSyncDialog } from '@/components/sync/BlockedSyncDialog';
 import { toast } from 'sonner';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
 import { useVaultStore } from '@/stores/vault-store';
@@ -99,6 +100,8 @@ interface UseSyncEngineReturn extends SyncState {
   clearPending: () => void;
   refreshPendingCount: () => void;
   canSync: boolean;
+
+  blockedDialog: React.ReactNode;
 }
 
 export function useSyncEngine(): UseSyncEngineReturn {
@@ -108,6 +111,9 @@ export function useSyncEngine(): UseSyncEngineReturn {
     lastSync: null,
     error: null,
   });
+
+  const [blockedDialogOpen, setBlockedDialogOpen] = useState(false);
+  const [blockedEncryptedCount, setBlockedEncryptedCount] = useState(0);
 
   const { syncMode, syncEnabled, setLastSyncAt } = useSyncSettingsStore();
   const { isUnlocked, vaultEnvelope, vaultKey } = useVaultStore();
@@ -122,6 +128,27 @@ export function useSyncEngine(): UseSyncEngineReturn {
     }
     return true;
   }, [syncMode, syncEnabled, isUnlocked, vaultEnvelope, vaultKey]);
+
+  const deleteEncryptedCloudData = useCallback(async (): Promise<void> => {
+    const res = await fetch('/api/vault/disable', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete-encrypted' }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to delete encrypted cloud data');
+    }
+
+    setBlockedEncryptedCount(0);
+  }, []);
+
+  const revertVaultToPlaintext = useCallback(async (): Promise<void> => {
+    // Reuse existing vault disable flow (passphrase + decrypt + upload plaintext).
+    // We trigger it by dispatching a custom event that settings UI listens for.
+    window.dispatchEvent(new CustomEvent('vault-revert-requested'));
+  }, []);
 
   const refreshPendingCount = useCallback(() => {
     // Only access storage on client side
@@ -181,13 +208,49 @@ export function useSyncEngine(): UseSyncEngineReturn {
     try {
       let records: PlaintextRecord[] = [];
 
-      if (syncMode === 'e2e') {
-        await encryptedPull(() => {});
-      } else {
-        const result = await pullAllPlaintext();
-        if (result.error) throw new Error(result.error);
-        records = result.records;
-      }
+       if (syncMode === 'e2e') {
+         // SECURITY: This code path only executes when vault is unlocked.
+         // canSync() at the top of this function returns false if vault is locked,
+         // preventing any E2E pull operations when the vault key is unavailable.
+         const pulled = await encryptedPull(() => {});
+
+         // Store pulled ciphertext records in local cache for decryption.
+         // Note: these ciphertext records are server-format (single string).
+          const { mergePulledCiphertextRecords } = await import('@/lib/encrypted-storage');
+          mergePulledCiphertextRecords(
+            pulled.records
+              .filter((r) => r.ciphertext !== null)
+              .map((r) => ({
+                recordId: r.recordId,
+                recordType: r.recordType,
+                ciphertext: r.ciphertext as string,
+                version: r.version,
+                deleted: r.deleted,
+                updatedAt: r.updatedAt,
+              }))
+          );
+
+
+          if (vaultKey) {
+            try {
+              const { decryptAndApplyPulledE2eRecords } = await import('@/lib/decrypt-and-apply');
+              const { applied } = await decryptAndApplyPulledE2eRecords(vaultKey);
+              if (applied > 0) {
+                triggerRefresh();
+              }
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to decrypt pulled records';
+              console.error('[e2e-sync] decrypt/apply failed', error);
+              setState(prev => ({ ...prev, error: message }));
+              toast.error('Sync failed', { description: message });
+            }
+          }
+
+       } else {
+         const result = await pullAllPlaintext();
+         if (result.error) throw new Error(result.error);
+         records = result.records;
+       }
 
       const now = new Date();
       setState(prev => ({ ...prev, lastSync: now }));
@@ -197,6 +260,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
       return records;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Pull failed';
+      console.error('[sync] pull failed', error);
       setState(prev => ({ ...prev, error: message }));
       toast.error('Sync failed', { description: message });
       return [];
@@ -204,7 +268,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
       syncInProgressRef.current = false;
       setState(prev => ({ ...prev, isSyncing: false }));
     }
-  }, [canSync, syncMode, setLastSyncAt]);
+   }, [canSync, syncMode, setLastSyncAt, triggerRefresh, vaultKey]);
 
   // === PUSH ===
   const syncPush = useCallback(async (): Promise<SyncPushResult> => {
@@ -262,6 +326,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Push failed';
+      console.error('[sync] push failed', error);
       setState(prev => ({ ...prev, error: message }));
       toast.error('Sync failed', { description: message });
       return { success: false, synced: 0, conflicts: [], errors: [message] };
@@ -269,7 +334,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
       syncInProgressRef.current = false;
       setState(prev => ({ ...prev, isSyncing: false }));
     }
-  }, [canSync, syncMode, setLastSyncAt, refreshPendingCount]);
+   }, [canSync, syncMode, setLastSyncAt, refreshPendingCount]);
 
   // === APPLY PULLED RECORDS ===
   const applyPulledRecords = useCallback((records: PlaintextRecord[]) => {
@@ -321,6 +386,15 @@ export function useSyncEngine(): UseSyncEngineReturn {
       return { pulled: 0, skipped: true };
     }
 
+    // For E2E mode, we cannot use plaintext checksum - just do a direct pull
+    // The vault must be unlocked (checked by canSync) for security
+    if (syncMode === 'e2e') {
+      const records = await syncPull();
+      // E2E pull handles decryption internally
+      return { pulled: records.length, skipped: false };
+    }
+
+    // Plaintext mode: use checksum optimization
     try {
       // Fetch server checksum
       const response = await fetch('/api/sync/plaintext/checksum', {
@@ -378,7 +452,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
     } finally {
       // Don't clear syncInProgressRef here - syncPull handles it
     }
-  }, [canSync, syncPull, applyPulledRecords]);
+  }, [canSync, syncMode, syncPull, applyPulledRecords]);
 
   // === SYNC FULL ===
   const syncFull = useCallback(async (): Promise<{ pushed: number; pulled: number }> => {
@@ -394,26 +468,29 @@ export function useSyncEngine(): UseSyncEngineReturn {
   const queueBookmark = useCallback((bookmark: Bookmark, version: number, deleted: boolean = false) => {
     if (!canSync()) return;
     if (syncMode === 'plaintext') {
+      if (blockedDialogOpen) return;
       queuePlaintextOperation(bookmark.id, 'bookmark', bookmark, version, deleted);
       refreshPendingCount();
     }
-  }, [canSync, syncMode, refreshPendingCount]);
+  }, [canSync, syncMode, refreshPendingCount, blockedDialogOpen]);
 
   const queueSpace = useCallback((space: Space, version: number, deleted: boolean = false) => {
     if (!canSync()) return;
     if (syncMode === 'plaintext') {
+      if (blockedDialogOpen) return;
       queuePlaintextOperation(space.id, 'space', space, version, deleted);
       refreshPendingCount();
     }
-  }, [canSync, refreshPendingCount]);
+  }, [canSync, syncMode, refreshPendingCount, blockedDialogOpen]);
 
   const queuePinnedView = useCallback((view: PinnedView, version: number, deleted: boolean = false) => {
     if (!canSync()) return;
     if (syncMode === 'plaintext') {
+      if (blockedDialogOpen) return;
       queuePlaintextOperation(view.id, 'pinned-view', view, version, deleted);
       refreshPendingCount();
     }
-  }, [canSync, refreshPendingCount]);
+  }, [canSync, syncMode, refreshPendingCount, blockedDialogOpen]);
 
   const clearPending = useCallback(() => {
     if (syncMode === 'plaintext') {
@@ -434,6 +511,16 @@ export function useSyncEngine(): UseSyncEngineReturn {
     queuePinnedView,
     clearPending,
     refreshPendingCount,
+    blockedDialog: React.createElement(BlockedSyncDialog, {
+      isOpen: blockedDialogOpen,
+      onClose: () => setBlockedDialogOpen(false),
+      encryptedRecordCount: blockedEncryptedCount,
+      onRevertToPlaintext: revertVaultToPlaintext,
+      onDeleteEncryptedCloudData: async () => {
+        await deleteEncryptedCloudData();
+        setBlockedDialogOpen(false);
+      },
+    }),
   };
 }
 
@@ -446,12 +533,13 @@ export function useEncryptedQueue() {
 
   const queueEncrypted = useCallback((
     recordId: string,
+    recordType: RecordType,
     baseVersion: number,
     ciphertext: string,
     deleted: boolean = false
   ) => {
     if (!canQueue) return;
-    queueEncryptedOperation({ recordId, baseVersion, ciphertext, deleted });
+    queueEncryptedOperation({ recordId, recordType, baseVersion, ciphertext, deleted });
   }, [canQueue]);
 
   return { canQueue, queueEncrypted };

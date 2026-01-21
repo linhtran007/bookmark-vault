@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useVaultStore } from "@/stores/vault-store";
 import { loadAndDecryptAllBookmarks, saveEncryptedRecord } from "@/lib/encrypted-storage";
 import type { StoredEncryptedRecord } from "@/lib/encrypted-storage";
+import * as crypto from "@/lib/crypto";
 
 export function useIncomingSync() {
   const { vaultEnvelope, isUnlocked, vaultKey } = useVaultStore();
@@ -24,12 +25,27 @@ export function useIncomingSync() {
         const existing = localRecords.find(r => r.recordId === record.recordId);
 
         if (!existing || existing.version < record.version) {
+          // Incoming server ciphertext is base64 of [iv][ciphertext][tag].
+          const combined = crypto.base64ToArray(record.ciphertext);
+          const iv = combined.slice(0, 12);
+          const tag = combined.slice(-16);
+          const ciphertext = combined.slice(12, -16);
+
+          if (iv.length !== 12 || tag.length !== 16 || ciphertext.length === 0) {
+            console.warn('[e2e-sync] received invalid ciphertext payload', {
+              recordId: record.recordId,
+              recordType: record.recordType,
+              length: combined.length,
+            });
+            return;
+          }
+
           const encryptedRecord: StoredEncryptedRecord = {
             recordId: record.recordId,
             recordType: record.recordType || 'bookmark', // Default to bookmark for backward compatibility
-            ciphertext: record.ciphertext,
-            iv: '', 
-            tag: '', 
+            ciphertext: crypto.arrayToBase64(ciphertext),
+            iv: crypto.arrayToBase64(iv),
+            tag: crypto.arrayToBase64(tag),
             version: record.version,
             deleted: record.deleted,
             createdAt: record.updatedAt,

@@ -20,6 +20,12 @@ export async function POST(req: Request) {
     const result = await query(
       `INSERT INTO vaults (user_id, wrapped_key, salt, kdf_params)
        VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id)
+       DO UPDATE SET
+         wrapped_key = EXCLUDED.wrapped_key,
+         salt = EXCLUDED.salt,
+         kdf_params = EXCLUDED.kdf_params,
+         updated_at = NOW()
        RETURNING id`,
       [userId, wrappedKey, salt, JSON.stringify(kdfParams)]
     );
@@ -29,12 +35,6 @@ export async function POST(req: Request) {
       vaultId: result[0].id,
     });
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error) {
-      const err = error as { code?: string };
-      if (err.code === '23505') {
-        return NextResponse.json({ error: 'Vault already exists' }, { status: 409 });
-      }
-    }
     console.error('Vault enable error:', error);
     return NextResponse.json({ error: 'Failed to enable vault' }, { status: 500 });
   }

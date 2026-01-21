@@ -6,7 +6,7 @@ import type { RecordType } from '@/lib/types';
 interface EncryptedPushOperation {
   recordId: string;
   recordType?: RecordType; // Optional for backward compatibility, defaults to 'bookmark'
-  baseVersion: number;
+  baseVersion?: number; // Ignored - using last-write-wins
   ciphertext: string;
   deleted: boolean;
 }
@@ -31,50 +31,37 @@ export async function POST(req: Request) {
     }
 
     const results: { recordId: string; version: number }[] = [];
-    const conflicts: { recordId: string; recordType: RecordType; serverVersion: number; serverCiphertext: string }[] = [];
 
     for (const op of operations) {
-      const { recordId, recordType = 'bookmark', baseVersion, ciphertext, deleted } = op;
+      const { recordId, recordType = 'bookmark', ciphertext, deleted } = op;
 
       const existing = await query(
-        `SELECT id, version, ciphertext 
+        `SELECT id, version
          FROM records 
          WHERE record_id = $1 AND user_id = $2 AND record_type = $3`,
         [recordId, userId, recordType]
       );
 
       if (existing.length === 0) {
-        await query(
-          `INSERT INTO records (user_id, record_id, record_type, ciphertext, encrypted, version, deleted)
-           VALUES ($1, $2, $3, $4, true, 1, $5)
+        // Insert new record
+        const inserted = await query(
+          `INSERT INTO records (user_id, record_id, record_type, ciphertext, encrypted, data, version, deleted)
+           VALUES ($1, $2, $3, $4, true, NULL, 1, $5)
            RETURNING id, version`,
           [userId, recordId, recordType, ciphertext, deleted]
         );
-        results.push({ recordId, version: 1 });
-      } else if (existing[0].version === baseVersion) {
+        results.push({ recordId, version: inserted[0].version });
+      } else {
+        // Update existing record (last-write-wins)
         const updated = await query(
           `UPDATE records
-           SET ciphertext = $1, version = version + 1, deleted = $2, updated_at = NOW()
+           SET ciphertext = $1, encrypted = true, data = NULL, version = version + 1, deleted = $2, updated_at = NOW()
            WHERE id = $3
            RETURNING version`,
           [ciphertext, deleted, existing[0].id]
         );
         results.push({ recordId, version: updated[0].version });
-      } else {
-        conflicts.push({
-          recordId,
-          recordType,
-          serverVersion: existing[0].version,
-          serverCiphertext: existing[0].ciphertext?.toString('base64') || '',
-        });
       }
-    }
-
-    if (conflicts.length > 0) {
-      return NextResponse.json(
-        { success: false, results, conflicts },
-        { status: 409 }
-      );
     }
 
     // Update last_sync_at in sync_settings
@@ -85,7 +72,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, results, synced: results.length });
   } catch (error) {
-    console.error('Sync push error:', error);
+    console.error('Sync push error:', {
+      error,
+      userId,
+    });
     return NextResponse.json({ error: 'Sync failed' }, { status: 500 });
   }
 }

@@ -17,6 +17,7 @@ import { getSpaces } from "@/lib/spacesStorage";
 import SpacesSidebar from "@/components/spaces/SpacesSidebar";
 import { useUiStore } from "@/stores/useUiStore";
 import { useVaultStore } from "@/stores/vault-store";
+import { useSyncSettingsStore } from "@/stores/sync-settings-store";
 import { UnlockScreen } from "@/components/vault/UnlockScreen";
 import { useSyncOptional } from "@/hooks/useSyncProvider";
 import { BookmarkListSkeleton } from "@/components/bookmarks/BookmarkCardSkeleton";
@@ -48,6 +49,7 @@ export default function Home() {
 
   // Vault state
   const { vaultEnvelope, isUnlocked, currentUserId } = useVaultStore();
+  const { syncMode } = useSyncSettingsStore();
 
   // Local refs (not in store)
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -145,9 +147,10 @@ export default function Home() {
   // Show unlock screen ONLY if:
   // 1. User is signed in
   // 2. Vault is initialized for this user (currentUserId is set)
-  // 3. User has an envelope (E2E is enabled)
-  // 4. Vault is not yet unlocked
-  if (isSignedIn && currentUserId && vaultEnvelope && !isUnlocked) {
+  // 3. syncMode is 'e2e' (not plaintext or off)
+  // 4. User has an envelope (E2E is enabled)
+  // 5. Vault is not yet unlocked
+  if (isSignedIn && currentUserId && syncMode === 'e2e' && vaultEnvelope && !isUnlocked) {
     return <UnlockScreen />;
   }
 

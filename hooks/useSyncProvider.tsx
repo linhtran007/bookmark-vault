@@ -53,7 +53,7 @@ interface SyncContextValue {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, userId } = useAuth();
   const { syncMode, syncEnabled, loadFromServer } = useSyncSettingsStore();
   const { vaultEnvelope, isUnlocked } = useVaultStore();
   
@@ -86,12 +86,24 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Load sync settings from server on sign-in
+  // Also refresh vault envelope once we know settings indicate E2E.
+  const initializeVault = useVaultStore((s) => s.initialize);
+
   useEffect(() => {
     if (isSignedIn && isLoaded && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
-      loadFromServer();
+      loadFromServer().catch(() => {});
     }
   }, [isSignedIn, isLoaded, loadFromServer]);
+
+  // If the server says we're in E2E mode, ensure vault-store loads envelope
+  // for this user so the app can show the unlock screen immediately.
+  useEffect(() => {
+    if (!isSignedIn || !isLoaded) return;
+    if (syncMode !== 'e2e') return;
+
+    initializeVault(userId ?? null);
+  }, [initializeVault, isSignedIn, isLoaded, syncMode, userId]);
 
   // Check for migration conflicts on sign-in
   useEffect(() => {
