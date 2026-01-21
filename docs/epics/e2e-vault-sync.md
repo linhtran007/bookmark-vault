@@ -1,325 +1,169 @@
 ---
 title: E2E Vault Sync Epic — Bookmark Vault
-stack: Next.js (App Router) + TailwindCSS + TypeScript + PostgreSQL
-scope: end-to-end encryption, vault sync, cloud storage
+stack: Next.js (App Router) + TailwindCSS + TypeScript + Clerk + Neon Postgres
+dependencies:
+  - Plaintext cloud sync (already implemented)
+scope:
+  - Client-side end-to-end encryption (“vault”)
+  - Encrypted cloud sync (push/pull) gated by unlock
+  - Safe mode switching and cleanup between plaintext and E2E
 non_goals:
   - No server-side decryption (server never sees plaintext)
   - No multi-user vault sharing (single-user vaults only)
   - No key recovery without passphrase
+  - No offline-first “device pairing”
 ---
 
-# EPIC: End-to-End Encrypted Vault Sync (Wow: Private Cloud Sync)
+# EPIC: End-to-End Encrypted Vault Sync (Zero-Knowledge Cloud Sync)
 
-## Epic Goal
-Enable users to sync their bookmarks to the cloud with **complete privacy** — the server stores encrypted data and **never sees the plaintext**. Users maintain full control of their data through their vault passphrase.
+## Goal
+Enable signed-in users to sync bookmarks/spaces/pinned views to the cloud with **complete privacy**.
+
+- In `syncMode='plaintext'`, the server stores JSON in `records.data`.
+- In `syncMode='e2e'`, the server stores opaque ciphertext in `records.ciphertext` and **never sees plaintext**.
+
+This epic is about making the encrypted path fully correct (push + pull + apply), and making mode switching safe and deterministic.
+
+## Glossary
+- **Vault envelope**: passphrase-wrapped vault key stored locally (safe to persist).
+- **Vault key**: decrypted symmetric key stored **only in session** (sessionStorage) after unlock.
+- **Outbox**: client-side queue of pending push operations.
+
+## Current Status (Reality, From Repo)
+
+### ✅ Already Implemented
+
+**Server routes (Neon Postgres + Clerk auth)**
+- Plaintext sync
+  - `POST /api/sync/plaintext/push`
+  - `GET /api/sync/plaintext/pull`
+  - `GET /api/sync/plaintext/checksum`
+- Encrypted sync
+  - `POST /api/sync/push`
+  - `GET /api/sync/pull`
+- Sync settings
+  - `GET/PUT /api/sync/settings` supports `syncMode: 'off' | 'plaintext' | 'e2e'`.
+- Vault disable server workflow
+  - `POST /api/vault/disable` supports: verify, delete encrypted records, delete vault.
+
+**Client vault + sync plumbing**
+- Vault enable: `hooks/useVaultEnable.ts`
+  - Creates vault envelope, encrypts local data into encrypted local storage.
+  - Switches to `syncMode='e2e'`, queues encrypted outbox, pushes to server.
+  - Clears plaintext local storage.
+- Vault unlock: `hooks/useVaultUnlock.ts` + UI (`components/vault/UnlockScreen.tsx`)
+  - Unwraps `vaultKey` from envelope and stores it in `sessionStorage` via `stores/vault-store.ts`.
+- Vault disable (E2E → plaintext revert): `hooks/useVaultDisable.ts`
+  - Passphrase required.
+  - Decrypts encrypted local storage → re-uploads plaintext → deletes encrypted server records → clears encrypted local storage → switches sync mode back to plaintext.
+- Unified sync surface: `hooks/useSyncEngineUnified.ts`
+  - Branches by `syncMode`:
+    - plaintext uses `/api/sync/plaintext/*`
+    - e2e uses `/api/sync/push` + `/api/sync/pull`
+
+### ⚠️ Known Gaps / Bugs
+
+**1) Server push endpoints do not enforce “mode invariants”**
+- Plaintext push selects existing records without filtering `encrypted=false`, and updates `data` only.
+- Encrypted push selects existing records without filtering `encrypted=true`, and updates `ciphertext` only.
+
+This allows “hybrid rows” (encrypted flag + both columns populated) and breaks mode switching guarantees.
+
+**2) Client E2E pull does not apply results to storage**
+- `lib/sync-engine.ts` currently broadcasts pulled records to a `BroadcastChannel` and returns `records: []`.
+- `hooks/useSyncEngineUnified.ts` calls encrypted pull, but does not persist/decrypt/apply pulled ciphertext.
+
+## Locked Decisions
+
+### 1) Endpoint naming (keep existing)
+- Encrypted: `POST /api/sync/push`, `GET /api/sync/pull`
+- Plaintext: `/api/sync/plaintext/*`
+
+No `/api/sync/e2e/*` rename.
+
+### 2) Storage model: single `records` table
+One row per `(user_id, record_id, record_type)`.
+
+Columns:
+- `encrypted boolean`
+- `data` (plaintext JSON) — only valid when `encrypted=false`
+- `ciphertext` (opaque bytes) — only valid when `encrypted=true`
+
+### 3) Mode invariants (must be enforced server-side)
+For every row in `records`:
+- If `encrypted = true`:
+  - `ciphertext` MUST be set
+  - `data` MUST be NULL
+- If `encrypted = false`:
+  - `data` MUST be set
+  - `ciphertext` MUST be NULL
+
+Push routes may “convert” a row in-place to the desired mode by flipping `encrypted` and clearing the other column.
+
+### 4) Leftover encrypted cloud records while in plaintext mode: **BLOCK until resolved**
+Decision (A): If the user is in `syncMode='plaintext'` but encrypted cloud records exist for the user, plaintext sync is considered **blocked** until the user resolves it.
+
+**UX behavior**
+- Show a dialog explaining:
+  - “Encrypted cloud data exists from a previous vault session.”
+  - “Plaintext sync is paused to avoid split-brain data.”
+- Provide actions:
+  1) **Revert (Recommended)**: prompt for passphrase and run the existing revert flow (`hooks/useVaultDisable.ts`).
+  2) **Delete encrypted cloud data** (danger): delete encrypted server records without decrypting/re-uploading; continue in plaintext.
+  3) **Cancel**: keep sync disabled for now.
+
+(Delete option should require explicit confirmation; this is destructive.)
 
 ## Definition of Done
-- E2E sync APIs handle encrypted records (push/pull/checksum)
-- Server stores only encrypted data (plaintext never transmitted)
-- E2E sync engine integrates with existing sync infrastructure
-- Users can migrate from plaintext to E2E mode seamlessly
-- Vault unlock required for E2E sync operations
-- Sync works reliably across devices with vault passphrase
-- Rollback mechanism if E2E sync fails
+- E2E mode provides working **push + pull + apply**, resulting in consistent local state across devices after unlock.
+- Server enforces record invariants for both push routes.
+- Plaintext mode correctly blocks when leftover encrypted cloud data exists, with a clear recovery path.
+- Unit/integration tests cover server routes + core sync logic.
 
-## Key Decisions Needed
+## Implementation Map
 
-### 1. Server Storage Strategy
-- **Option A (Recommended)**: Add `encrypted` boolean to existing `records` table
-  - Single table, encrypted records have `encrypted=true`, `data` contains ciphertext
-  - Simple migration path
-  - Consistent indexing for both modes
+### Phase A — Server correctness (invariants + conflicts)
+- Update plaintext push to set `encrypted=false` and clear `ciphertext` on insert/update.
+- Update encrypted push to set `encrypted=true` and clear `data` on insert/update.
+- Ensure conflict responses include `recordId`, `recordType`, and server version (+ ciphertext when relevant).
 
-- **Option B**: Separate `encrypted_records` table
-  - Clean separation of concerns
-  - More complex sync logic
-  - Duplicate table structure
+### Phase B — Encrypted pull/apply pipeline
+- Make `lib/sync-engine.ts` return pulled records (not broadcast-only).
+- Add an apply step that:
+  - writes pulled ciphertext into encrypted local storage
+  - if vault is unlocked, decrypts and applies to normal local storages
 
-### 2. E2E Record Format
-```typescript
-// Server stores this (never decrypted)
-interface EncryptedRecord {
-  user_id: string;
-  record_id: string;
-  record_type: 'bookmark' | 'space' | 'pinned-view';
-  ciphertext: string;        // AES-GCM-256 encrypted
-  version: number;
-  deleted: boolean;
-  updated_at: string;
-}
+### Phase C — Mode switching safety
+- Add detection for leftover encrypted cloud records when in plaintext mode.
+  - If found: block sync and show dialog.
+  - Wire dialog actions to:
+    - `useVaultDisable()` (revert)
+    - `/api/vault/disable` with `{ action: 'delete-encrypted' }` (delete)
 
-// Plaintext equivalent (for comparison)
-interface PlaintextRecord {
-  recordId: string;
-  recordType: string;
-  data: unknown;             // Actual bookmark/space/view data
-  version: number;
-  deleted: boolean;
-  updatedAt: string;
-}
-```
+### Phase D — Tests (unit/integration)
+- Route tests for:
+  - `POST /api/sync/plaintext/push` (ensures `encrypted=false` + `ciphertext` cleared)
+  - `POST /api/sync/push` (ensures `encrypted=true` + `data` cleared)
+  - `GET /api/sync/plaintext/pull` and `GET /api/sync/pull` (mode filtering)
+- Light unit tests around encrypted pull returning records.
 
-### 3. Sync Mode Isolation
-- **Option A (Recommended)**: Users choose ONE mode (plaintext OR E2E)
-  - Simpler mental model
-  - Clear UX boundaries
-  - Server tracks user's sync mode in `sync_settings`
+## Key Files (Reality-Based)
 
-- **Option B**: Allow both modes simultaneously
-  - More complex
-  - Potential data confusion
+### Server
+- `app/api/sync/plaintext/push/route.ts`
+- `app/api/sync/plaintext/pull/route.ts`
+- `app/api/sync/plaintext/checksum/route.ts`
+- `app/api/sync/push/route.ts`
+- `app/api/sync/pull/route.ts`
+- `app/api/sync/settings/route.ts`
+- `app/api/vault/disable/route.ts`
 
-### 4. Migration from Plaintext to E2E
-- When user enables E2E:
-  1. Client encrypts all local data
-  2. Push encrypted records to server
-  3. Server deletes old plaintext records
-  4. User's sync mode updated to `e2e`
-- Rollback: If migration fails, keep plaintext data
-
----
-
-## Tasks (Agent-Friendly)
-
-### Phase 1: Server Schema & API Foundation
-
-#### 1.1 Update database schema
-```sql
--- Add encrypted flag to records table
-ALTER TABLE records ADD COLUMN encrypted BOOLEAN DEFAULT false;
-ALTER TABLE records ADD COLUMN ciphertext TEXT;
-
--- Index for encrypted record queries
-CREATE INDEX idx_records_user_encrypted ON records(user_id, encrypted);
-```
-
-#### 1.2 Create E2E push endpoint
-- Route: `POST /api/sync/e2e/push`
-- Accepts array of encrypted operations
-- Stores `ciphertext` directly (no decryption)
-- Returns sync results (conflicts, errors)
-- **Important**: Server must NEVER attempt to decrypt
-
-#### 1.3 Create E2E pull endpoint
-- Route: `GET /api/sync/e2e/pull`
-- Returns user's encrypted records
-- Supports pagination (cursor-based)
-- Returns only `encrypted=true` records
-- Client decrypts after receiving
-
-#### 1.4 Create E2E checksum endpoint
-- Route: `GET /api/sync/e2e/checksum`
-- Calculates checksum from encrypted records
-- Uses `ciphertext` for hash (server can't hash plaintext)
-- Returns count, lastUpdate, checksum
-
-#### 1.5 Update sync_settings schema
-```sql
--- Track user's sync mode
-ALTER TABLE sync_settings ADD COLUMN sync_mode VARCHAR(10) DEFAULT 'plaintext';
--- Values: 'off', 'plaintext', 'e2e'
-```
-
----
-
-### Phase 2: E2E Sync Engine Implementation
-
-#### 2.1 Implement E2E sync push
-- File: `lib/sync-engine.ts` (complete placeholder functions)
-- Encrypt records before pushing
-- Handle conflicts (last-write-wins based on version)
-- Update local `_syncVersion` after successful push
-- Queue operations in outbox
-
-#### 2.2 Implement E2E sync pull
-- Fetch encrypted records from server
-- Decrypt using vault key
-- Merge with local data
-- Handle deletions (`deleted=true` records)
-- Apply pulled records to localStorage
-
-#### 2.3 Implement E2E checksum calculation
-- Calculate from local encrypted data
-- Match server's checksum logic
-- Use for sync optimization
-
-#### 2.4 Integrate with unified sync engine
-- File: `hooks/useSyncEngineUnified.ts`
-- Route to E2E functions when `syncMode === 'e2e'`
-- Ensure vault is unlocked before E2E operations
-- Show appropriate errors if vault locked
-
----
-
-### Phase 3: Migration & UX
-
-#### 3.1 Complete E2E enable flow
-- File: `hooks/useVaultEnable.ts`
-- After vault creation and local encryption:
-  - Push all encrypted records to server
-  - Wait for server confirmation
-  - Delete old plaintext records from server
-  - Update user's `sync_mode` to `e2e`
-- Handle failures gracefully (keep plaintext fallback)
-
-#### 3.2 Vault unlock for sync
-- File: `hooks/useVaultUnlock.ts`
-- When vault unlocks:
-  - Trigger immediate sync if needed
-  - Load E2E outbox operations
-  - Clear any pending sync errors
-
-#### 3.3 Sync mode UI
-- File: `components/settings/SyncModeToggle.tsx`
-- Show current mode clearly
-- Explain E2E vs plaintext differences
-- Warn before switching modes
-- Mode switching requires confirmation
-
-#### 3.4 Error handling
-- Vault locked: "Unlock vault to sync"
-- Server error: Retry with exponential backoff
-- Decryption failed: "Corrupted data - contact support"
-- Network error: Queue for retry
-
----
-
-### Phase 4: Testing & Validation
-
-#### 4.1 E2E sync tests
-- Test push/pull with encrypted data
-- Test conflict resolution
-- Test checksum optimization
-- Test offline queue (outbox)
-
-#### 4.2 Migration tests
-- Test plaintext → E2E migration
-- Test rollback on failure
-- Test re-migration (disable → enable)
-
-#### 4.3 Cross-device sync
-- Create vault on Device A
-- Sync encrypted data
-- Unlock vault on Device B
-- Verify data matches
-
-#### 4.4 Security validation
-- Verify server never stores plaintext
-- Verify transmission is HTTPS
-- Verify vault key never leaves client
-- Verify passphrase strength requirements
-
----
-
-## Acceptance Criteria
-
-### Functional
-- [ ] E2E push successfully stores encrypted records
-- [ ] E2E pull returns and decrypts records correctly
-- [ ] Checksum optimization works for E2E mode
-- [ ] Migration from plaintext to E2E completes successfully
-- [ ] Vault unlock triggers sync if needed
-- [ ] Sync errors are handled gracefully
-
-### Security
-- [ ] Server NEVER receives plaintext data in E2E mode
-- [ ] Vault key never transmitted or stored on server
-- [ ] Encrypted data is unreadable without vault key
-- [ ] HTTPS enforced for all E2E sync calls
-
-### UX
-- [ ] Users understand E2E vs plaintext tradeoffs
-- [ ] Vault unlock flow is clear and fast
-- [ ] Sync status is visible and accurate
-- [ ] Errors are actionable (e.g., "Unlock vault to sync")
-
-### Performance
-- [ ] E2E sync completes in < 5 seconds for 1000 records
-- [ ] Checksum comparison skips unnecessary pulls
-- [ ] Vault unlock doesn't block UI
-
----
-
-## Architecture Notes
-
-### Data Flow (E2E Sync)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        CLIENT                                │
-│  ┌─────────────┐      ┌─────────────┐      ┌─────────────┐ │
-│  │  localStorage│─────▶│ Vault Store │─────▶│   Crypto    │ │
-│  │ (Plaintext)  │      │ (Keys)      │      │ (AES-GCM)   │ │
-│  └─────────────┘      └─────────────┘      └─────────────┘ │
-│         │                                            │      │
-│         ▼                                            ▼      │
-│  ┌─────────────┐                              ┌─────────────┐│
-│  │ Sync Engine │                              │   E2E Sync  ││
-│  │ (Unified)   │                              │   (Push)    ││
-│  └─────────────┘                              └─────────────┘│
-└─────────────────────────────────────────────────────────────┘
-                           │
-                           │ HTTPS (Encrypted Records)
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        SERVER                                │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              PostgreSQL Database                     │   │
-│  │  records:                                            │   │
-│  │    - user_id                                          │   │
-│  │    - encrypted = true                                 │   │
-│  │    - ciphertext (NEVER decrypted)                     │   │
-│  │    - version, deleted, updated_at                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Key Files to Modify/Create
-
-**New Files:**
-- `app/api/sync/e2e/push/route.ts`
-- `app/api/sync/e2e/pull/route.ts`
-- `app/api/sync/e2e/checksum/route.ts`
-
-**Modify Files:**
-- `lib/sync-engine.ts` (complete E2E functions)
-- `hooks/useSyncEngineUnified.ts` (route to E2E APIs)
-- `hooks/useVaultEnable.ts` (add server migration)
-- `lib/db.ts` (add encrypted queries)
-
----
-
-## Dependencies
-
-### Must Complete First
-- ✅ Plaintext cloud sync (currently in progress)
-- ✅ Vault system (already implemented)
-- ✅ Crypto utilities (already implemented)
-- ✅ Encrypted local storage (already implemented)
-
-### This Epic Enables
-- Future: Multi-device E2E sync
-- Future: Vault backup/recovery
-- Future: Secure sharing (optional)
-
----
-
-## Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| User forgets passphrase | Data loss | Clear warnings during setup; optional backup key |
-| Server stores plaintext accidentally | Security breach | Server validation; automated tests |
-| Sync corruption | Data loss | Version conflict detection; rollback mechanism |
-| Performance degradation | UX issues | Benchmark; optimize batch sizes |
-| Migration fails | Stuck in intermediate state | Keep plaintext until E2E confirmed; atomic mode switch |
-
----
-
-## Success Metrics
-
-- **Adoption**: % of users with E2E enabled (target: 20%)
-- **Reliability**: E2E sync success rate (target: > 99%)
-- **Performance**: Average sync time (target: < 3s for 100 records)
-- **Security**: Zero plaintext leaks in logs/monitoring
-- **Support**: Vault-related support tickets (track trends)
+### Client
+- `hooks/useSyncEngineUnified.ts`
+- `hooks/useVaultEnable.ts`
+- `hooks/useVaultUnlock.ts`
+- `hooks/useVaultDisable.ts`
+- `stores/vault-store.ts`
+- `lib/plaintext-sync-engine.ts`
+- `lib/sync-engine.ts`
+- `lib/encrypted-storage.ts`
