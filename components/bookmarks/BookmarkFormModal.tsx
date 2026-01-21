@@ -12,16 +12,23 @@ import { useUiStore } from "@/stores/useUiStore";
 
 interface BookmarkFormModalProps {
   titleInputRef?: React.Ref<HTMLInputElement>;
+  onClose?: () => void;
 }
 
 export default function BookmarkFormModal({
   titleInputRef,
+  onClose,
 }: BookmarkFormModalProps) {
   // Read from store
   const isOpen = useUiStore((s) => s.isFormOpen);
   const editingBookmark = useUiStore((s) => s.editingBookmark);
   const selectedSpaceId = useUiStore((s) => s.selectedSpaceId);
   const closeForm = useUiStore((s) => s.closeForm);
+
+  const handleClose = () => {
+    closeForm();
+    onClose?.();
+  };
 
   const mode = editingBookmark ? "edit" : "create";
   const initialBookmark = editingBookmark;
@@ -40,7 +47,7 @@ export default function BookmarkFormModal({
     mode,
     initialBookmark,
     defaultSpaceId: selectedSpaceId,
-    onSuccess: closeForm,
+    onSuccess: handleClose,
   });
 
   const { allBookmarks } = useBookmarks();
@@ -81,7 +88,7 @@ export default function BookmarkFormModal({
   const hasErrors = Object.keys(errors).some((key) => errors[key as keyof typeof errors]);
 
   return (
-    <Modal isOpen={isOpen} onClose={closeForm} title={title}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={title}>
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <BookmarkFormFields
           form={form}
@@ -96,7 +103,7 @@ export default function BookmarkFormModal({
           <p className="text-sm text-red-600" role="alert">{errorMessage}</p>
         )}
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={closeForm}>
+          <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <Button

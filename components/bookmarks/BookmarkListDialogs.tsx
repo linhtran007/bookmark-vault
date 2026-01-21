@@ -22,6 +22,7 @@ export default function BookmarkListDialogs({
   onConfirmDelete,
 }: BookmarkListDialogsProps) {
   const openEditForm = useUiStore((s) => s.openEditForm);
+  const editingBookmark = useUiStore((s) => s.editingBookmark);
 
   // Trigger edit form when editTarget changes
   useEffect(() => {
@@ -30,9 +31,16 @@ export default function BookmarkListDialogs({
     }
   }, [editTarget, openEditForm]);
 
+  // Clear editTarget when modal closes (editingBookmark becomes null)
+  useEffect(() => {
+    if (!editingBookmark && editTarget) {
+      onCloseEdit();
+    }
+  }, [editingBookmark, editTarget, onCloseEdit]);
+
   return (
     <>
-      <BookmarkFormModal />
+      <BookmarkFormModal onClose={onCloseEdit} />
       <DeleteConfirmSheet
         isOpen={Boolean(deleteTarget)}
         title={deleteTarget?.title ?? ""}
