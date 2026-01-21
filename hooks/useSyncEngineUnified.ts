@@ -28,7 +28,7 @@ import {
   getPendingCount as getPlaintextPendingCount,
   clearOutbox as clearPlaintextOutbox,
 } from '@/lib/plaintext-sync-engine';
-import { getBookmarks, setBookmarks, getStoredChecksumMeta, saveChecksumMeta, type ChecksumMeta } from '@/lib/storage';
+import { getBookmarks, setBookmarks, getStoredChecksumMeta, saveChecksumMeta, setSkipChecksumRecalculation, type ChecksumMeta } from '@/lib/storage';
 import { getSpaces, setSpaces } from '@/lib/spacesStorage';
 import { getPinnedViews, savePinnedViews } from '@/lib/pinnedViewsStorage';
 
@@ -351,7 +351,14 @@ export function useSyncEngine(): UseSyncEngineReturn {
       }
 
       const records = await syncPull();
+
+      // Set flag to skip checksum recalculation when applying pulled records
+      // We'll use the server's checksum directly since it's the authoritative state
+      setSkipChecksumRecalculation(true);
       applyPulledRecords(records);
+      setSkipChecksumRecalculation(false);
+
+      // Save the server's checksum (authoritative state)
       saveChecksumMeta(serverMeta);
 
       return { pulled: records.length, skipped: false };
@@ -361,7 +368,9 @@ export function useSyncEngine(): UseSyncEngineReturn {
       // On error, try to pull
       try {
         const records = await syncPull();
+        setSkipChecksumRecalculation(true);
         applyPulledRecords(records);
+        setSkipChecksumRecalculation(false);
         return { pulled: records.length, skipped: false };
       } catch {
         return { pulled: 0, skipped: false };

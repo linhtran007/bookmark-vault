@@ -66,14 +66,6 @@ export async function GET() {
     const spacesCount = records.filter((r) => r.record_type === 'space').length;
     const pinnedViewsCount = records.filter((r) => r.record_type === 'pinned-view').length;
 
-    // DEBUG: Log server-side hash calculation details (after lastUpdate is calculated)
-    console.log('🔴 SERVER CHECKSUM DEBUG:');
-    console.log('  Records count:', plaintextRecords.length);
-    console.log('  Records (JSON):', JSON.stringify(plaintextRecords, null, 2));
-    console.log('  Calculated checksum:', checksum);
-    console.log('  lastUpdate:', lastUpdate?.toISOString() ?? null);
-    console.log('---');
-
     return NextResponse.json({
       checksum,
       count,

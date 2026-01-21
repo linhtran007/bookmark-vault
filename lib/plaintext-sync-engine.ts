@@ -216,8 +216,6 @@ export async function pullPlaintext(
     if (recordType) params.set('recordType', recordType);
     params.set('limit', limit.toString());
 
-    console.log('🌐 Fetching pull:', `/api/sync/plaintext/pull?${params}`);
-
     const response = await fetch(`/api/sync/plaintext/pull?${params}`, {
       cache: 'no-store',
       headers: {
@@ -232,16 +230,10 @@ export async function pullPlaintext(
 
     if (!response.ok) {
       const result = await response.json();
-      console.error('❌ Pull response not OK:', response.status, result);
       return { records: [], hasMore: false, error: result.error || 'Pull failed' };
     }
 
     const result = await response.json();
-    console.log('📦 Pull API response:', {
-      recordsCount: result.records?.length ?? 0,
-      hasMore: result.hasMore,
-      nextCursor: result.nextCursor,
-    });
     return {
       records: result.records,
       nextCursor: result.nextCursor,
@@ -263,7 +255,6 @@ export async function pullAllPlaintext(
   records: PlaintextRecord[];
   error?: string;
 }> {
-  console.log('🔄 Starting pullAllPlaintext...');
   const allRecords: PlaintextRecord[] = [];
   let cursor: string | undefined;
   let hasMore = true;
@@ -272,14 +263,10 @@ export async function pullAllPlaintext(
 
   while (hasMore && iterations < maxIterations) {
     iterations++;
-    console.log(`🔄 Pull iteration ${iterations}, cursor:`, cursor);
 
     const result = await pullPlaintext(cursor, recordType);
 
-    console.log(`  → Result: ${result.records.length} records, hasMore: ${result.hasMore}, error: ${result.error}`);
-
     if (result.error) {
-      console.error('❌ Pull error:', result.error);
       return { records: allRecords, error: result.error };
     }
 
@@ -288,7 +275,6 @@ export async function pullAllPlaintext(
     hasMore = result.hasMore;
   }
 
-  console.log(`✅ Pull complete: ${allRecords.length} total records in ${iterations} iterations`);
   return { records: allRecords };
 }
 

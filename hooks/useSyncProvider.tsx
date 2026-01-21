@@ -122,11 +122,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     syncEngine.checkAndSync()
       .then(({ skipped }) => {
         setChecksumMatched(skipped);
-        if (skipped) {
-          console.log('✅ Checksum matched - skipped pull, data is in sync');
-        } else {
-          console.log('📥 Checksum differed or first run - pulled data from cloud');
-        }
       })
       .catch(console.error);
   }, [isSignedIn, isLoaded, syncEngine.canSync, migration.status, syncEngine.checkAndSync]);

@@ -136,16 +136,6 @@ export async function calculateCombinedChecksum(
     })),
   ];
 
-  // DEBUG: Log client-side hash calculation details
-  console.log('🟢 CLIENT CHECKSUM DEBUG:');
-  console.log('  Bookmarks:', bookmarks.length);
-  console.log('  Spaces:', spaces.length);
-  console.log('  PinnedViews:', pinnedViews.length);
-  console.log('  Records (JSON):', JSON.stringify(allRecords, null, 2));
-
   const checksum = await calculateChecksumClient(allRecords as PlaintextRecord[]);
-  console.log('  Calculated checksum:', checksum);
-  console.log('---');
-
   return checksum;
 }

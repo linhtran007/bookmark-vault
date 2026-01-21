@@ -13,6 +13,13 @@ type StoredBookmarks = {
   data: Bookmark[];
 };
 
+// Flag to skip checksum recalculation (e.g., during pull where we use server's checksum)
+let skipChecksumRecalculation = false;
+
+export function setSkipChecksumRecalculation(skip: boolean): void {
+  skipChecksumRecalculation = skip;
+}
+
 // One-time cleanup: remove old redundant checksum key
 if (typeof window !== 'undefined') {
   try {
@@ -256,6 +263,11 @@ export function clearChecksum(): void {
  */
 export async function recalculateAndSaveChecksum(): Promise<void> {
   if (typeof window === 'undefined') return;
+
+  // Skip if flag is set (e.g., during pull where we use server's checksum)
+  if (skipChecksumRecalculation) {
+    return;
+  }
 
   try {
     // Get all local data
