@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import BookmarkFormModal from "@/components/bookmarks/BookmarkFormModal";
 import ImportExportModal from "@/components/bookmarks/ImportExportModal";
 import BookmarkList from "@/components/BookmarkList";
+import { Dashboard } from "@/components/bookmarks/Dashboard";
 import { OnboardingPanel } from "@/components/onboarding/OnboardingPanel";
 import { KeyboardShortcutsHelp } from "@/components/ui/KeyboardShortcutsHelp";
 import { BottomSheet, Button } from "@/components/ui";
@@ -157,55 +158,68 @@ export default function Home() {
   return (
     <ErrorBoundary>
       <BookmarksProvider>
-        <div className="space-y-10">
+        <div className="space-y-6">
           {/* Onboarding Panel - shows for first-time users */}
           <OnboardingPanel />
 
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Your personal vault</p>
-              <h2 className="text-2xl font-semibold">Manage your bookmarks</h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button onClick={openForm}>Add bookmark</Button>
-              <Button
-                variant="secondary"
-                onClick={openImportExport}
-                aria-label="Import or export bookmarks"
-              >
-                <ImportExportIcon />
-              </Button>
-              {/* Keyboard Shortcuts Help */}
-              <KeyboardShortcutsHelp position="bottom" />
-            </div>
-          </div>
-
           <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
+            {/* Sidebar - sticky on desktop */}
             <div className="hidden lg:block">
               <SpacesSidebar />
             </div>
 
+            {/* Main content */}
             <div className="min-w-0">
-              <div className="flex items-center justify-between gap-3 lg:hidden">
-                <div className="min-w-0">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Space</p>
-                  <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                    {spacesLabel}
-                  </p>
+              {/* Sticky header section */}
+              <div className="sticky top-[65px] z-20 bg-white/95 dark:bg-slate-950/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-slate-950/80 -mx-4 px-4 pt-4 pb-4 mb-4">
+                {/* Title + Actions row */}
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                  <div>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Your personal vault</p>
+                    <h2 className="text-2xl font-semibold">Manage your bookmarks</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button onClick={openForm}>Add bookmark</Button>
+                    <Button
+                      variant="secondary"
+                      onClick={openImportExport}
+                      aria-label="Import or export bookmarks"
+                    >
+                      <ImportExportIcon />
+                    </Button>
+                    {/* Keyboard Shortcuts Help */}
+                    <KeyboardShortcutsHelp position="bottom" />
+                  </div>
                 </div>
-                <Button
-                  variant="secondary"
-                  className="shrink-0"
-                  onClick={openSpaces}
-                >
-                  Spaces
-                </Button>
+
+                {/* Mobile space selector */}
+                <div className="flex items-center justify-between gap-3 lg:hidden mb-4">
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Space</p>
+                    <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {spacesLabel}
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    className="shrink-0"
+                    onClick={openSpaces}
+                  >
+                    Spaces
+                  </Button>
+                </div>
               </div>
 
+              {/* Dashboard - scrolls with content */}
+              <Dashboard />
+
+              {/* Modals */}
               <BookmarkFormModal
                 titleInputRef={titleInputRef}
               />
               <ImportExportModal />
+
+              {/* Bookmark list (toolbar + cards) */}
               <BookmarkList
                 cardsContainerRef={cardsContainerRef}
                 onAddBookmark={openForm}

@@ -31,6 +31,18 @@ export default function BottomSheet({
 
   useEffect(() => setIsMounted(true), []);
 
+  // Prevent body scroll when sheet is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -63,7 +75,7 @@ export default function BottomSheet({
             role="dialog"
             aria-modal="true"
             className={cn(
-              "relative w-full max-w-xl rounded-t-2xl bg-white p-6 shadow-md dark:bg-slate-900",
+              "relative w-full max-w-xl rounded-t-2xl bg-white p-6 shadow-md dark:bg-slate-900 overscroll-contain",
               className
             )}
             initial={{ y: "100%" }}

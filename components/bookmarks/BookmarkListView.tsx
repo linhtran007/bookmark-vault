@@ -69,15 +69,13 @@ export default function BookmarkListView({
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <BookmarkToolbar
-          onClearFilters={clearAllFilters}
-          tagOptions={tagOptions}
-          resultsCount={resultsCount}
-          totalCount={totalCount}
-          searchInputRef={searchInputRef}
-        />
-      </div>
+      <BookmarkToolbar
+        onClearFilters={clearAllFilters}
+        tagOptions={tagOptions}
+        resultsCount={resultsCount}
+        totalCount={totalCount}
+        searchInputRef={searchInputRef}
+      />
       {hasActiveFilters && (
           <FilterChips
             searchQuery={searchQuery}

@@ -40,21 +40,6 @@ function SpacesSidebarSkeleton({ className }: { className?: string }) {
         </Card>
 
         <Card className="p-4">
-          <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-slate-800" />
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div className="h-16 rounded bg-zinc-200 dark:bg-slate-800" />
-            <div className="h-16 rounded bg-zinc-200 dark:bg-slate-800" />
-          </div>
-          <div className="mt-4">
-            <div className="h-3 w-28 rounded bg-zinc-200 dark:bg-slate-800" />
-            <div className="mt-2 space-y-2">
-              <div className="h-10 rounded bg-zinc-200 dark:bg-slate-800" />
-              <div className="h-10 rounded bg-zinc-200 dark:bg-slate-800" />
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-4">
           <div className="flex items-center justify-between">
             <div className="h-4 w-28 rounded bg-zinc-200 dark:bg-slate-800" />
             <div className="h-8 w-16 rounded bg-zinc-200 dark:bg-slate-800" />
@@ -124,28 +109,6 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
     }
     return counts;
   }, [allBookmarks]);
-
-  const bookmarksInSelectedSpace = useMemo(() => {
-    if (selectedSpaceId === "all") return allBookmarks;
-    return allBookmarks.filter(
-      (bookmark) => (bookmark.spaceId ?? PERSONAL_SPACE_ID) === selectedSpaceId
-    );
-  }, [allBookmarks, selectedSpaceId]);
-
-  const uniqueTagCount = useMemo(() => {
-    const tags = new Set<string>();
-    for (const bookmark of bookmarksInSelectedSpace) {
-      for (const tag of bookmark.tags) tags.add(tag);
-    }
-    return tags.size;
-  }, [bookmarksInSelectedSpace]);
-
-  const recentBookmarks = useMemo(() => {
-    const sorted = [...bookmarksInSelectedSpace].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    return sorted.slice(0, 5);
-  }, [bookmarksInSelectedSpace]);
 
   const deleteTarget = useMemo(
     () => (deleteTargetId ? spaces.find((s) => s.id === deleteTargetId) ?? null : null),
@@ -363,59 +326,6 @@ function SpacesSidebar({ className }: SpacesSidebarProps) {
                 </div>
               );
             })}
-          </div>
-        </Card>
-
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Dashboard
-          </h3>
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Bookmarks
-              </div>
-              <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {bookmarksInSelectedSpace.length}
-              </div>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Tags
-              </div>
-              <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {uniqueTagCount}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <div className="text-xs font-medium text-slate-700 dark:text-slate-200">
-              Recently added
-            </div>
-            {recentBookmarks.length === 0 ? (
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                No bookmarks yet.
-              </p>
-            ) : (
-              <div className="mt-2 space-y-1">
-                {recentBookmarks.map((bookmark) => (
-                  <a
-                    key={bookmark.id}
-                    href={bookmark.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded-lg px-2 py-1.5 text-sm text-slate-700 hover:bg-zinc-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    <div className="truncate font-medium">{bookmark.title}</div>
-                    <div className="truncate text-[11px] text-slate-500 dark:text-slate-400">
-                      {bookmark.url}
-                    </div>
-                  </a>
-                ))}
-              </div>
-            )}
           </div>
         </Card>
 
