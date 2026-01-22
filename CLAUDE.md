@@ -127,3 +127,57 @@ lib/                      # Storage + validation + sync engines
 stores/                   # Zustand stores (vault, settings, etc.)
 docs/
 ```
+
+## Claude Code Skills
+
+### bookmark-safety
+**Location:** `~/.claude/skills/bookmark-safety/`
+
+Protects bookmark vault data from accidental deletion using Claude Code PreToolUse hooks.
+
+**What it does:**
+- Intercepts `Edit` and `Write` tool calls on bookmark storage files
+- Blocks dangerous operations: `localStorage.clear()`, `removeItem('bookmark-vault-*')`
+- Allows safe operations to proceed normally
+- Permits intentional deletions with explicit acknowledgment comments
+
+**How to use:**
+- Automatically active when editing storage-related files
+- Add acknowledgment comments to perform intentional deletions: `// ACKNOWLEDGMENT: [reason]`
+
+**Files:**
+- `SKILL.md` - Skill configuration with PreToolUse hook
+- `scripts/check-dangerous.sh` - Safety validation script
+- `scripts/test-hook.sh` - Comprehensive test suite (10 tests)
+- `README.md` - Full documentation
+
+**Testing:**
+```bash
+bash ~/.claude/skills/bookmark-safety/scripts/test-hook.sh
+```
+
+### bookmark-validator
+**Location:** `~/.claude/skills/bookmark-validator/`
+
+Validates bookmark data quality and detects issues systematically.
+
+**What it analyzes:**
+- Schema violations (UUID format, field constraints)
+- Duplicate URLs (normalized comparison)
+- Missing descriptions and tags
+- Generic/suspicious titles
+- Invalid URLs (HTTP instead of HTTPS, localhost, etc.)
+- Tag suggestions (domain-based pattern matching)
+
+**How to use:**
+```bash
+# Export bookmarks from browser to JSON file
+# Then validate:
+claude validate my bookmarks for quality issues
+```
+
+**Output:**
+- Structured report with summary statistics
+- All issues listed with specific bookmark IDs
+- Actionable recommendations for each issue
+- Tag suggestions based on domain patterns
