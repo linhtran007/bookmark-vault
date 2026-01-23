@@ -43,9 +43,14 @@ export default function BookmarkFormField({
     if (registerField && element instanceof HTMLInputElement) {
       registerField(name, element);
     }
+    if (inputRef && element instanceof HTMLInputElement) {
+      if (typeof inputRef === "function") {
+        inputRef(element);
+      } else {
+        (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = element;
+      }
+    }
   };
-
-  const forwardRef = inputRef ? handleRef : undefined;
 
   if (as === "textarea") {
     return (

@@ -2,7 +2,6 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import Button from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
 
 interface BulkActionsBarProps {
   selectedCount: number;

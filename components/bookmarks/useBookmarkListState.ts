@@ -2,12 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import {
-  filterByTag,
-  getUniqueTags,
-  sortBookmarks,
-  SortKey,
-} from "@/lib/bookmarks";
+import { filterByTag, getUniqueTags, sortBookmarks } from "@/lib/bookmarks";
 import { PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
 import { useUiStore } from "@/stores/useUiStore";
@@ -28,7 +23,6 @@ export function useBookmarkListState() {
     allBookmarks,
     deleteBookmark,
     errorMessage,
-    clearError,
     pendingAdds,
     pendingDeletes,
     isInitialLoading,

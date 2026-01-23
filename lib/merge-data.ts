@@ -30,39 +30,6 @@ export interface MergeOptions {
 }
 
 /**
- * Check if two bookmarks are duplicates (same URL)
- */
-function areBookmarksDuplicate(a: Bookmark, b: Bookmark): boolean {
-  // Normalize URLs for comparison
-  const normalizeUrl = (url: string) => {
-    try {
-      const parsed = new URL(url);
-      // Remove trailing slash and www prefix for comparison
-      return parsed.hostname.replace(/^www\./, '') + parsed.pathname.replace(/\/$/, '') + parsed.search;
-    } catch {
-      return url.toLowerCase();
-    }
-  };
-  
-  return normalizeUrl(a.url) === normalizeUrl(b.url);
-}
-
-/**
- * Check if two spaces are duplicates (same name)
- */
-function areSpacesDuplicate(a: Space, b: Space): boolean {
-  return a.name.toLowerCase().trim() === b.name.toLowerCase().trim();
-}
-
-/**
- * Check if two pinned views are duplicates (same name in same space)
- */
-function arePinnedViewsDuplicate(a: PinnedView, b: PinnedView): boolean {
-  return a.spaceId === b.spaceId && 
-         a.name.toLowerCase().trim() === b.name.toLowerCase().trim();
-}
-
-/**
  * Pick the newer item based on createdAt
  */
 function pickNewer<T extends { createdAt: string }>(a: T, b: T): T {

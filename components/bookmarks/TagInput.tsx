@@ -29,7 +29,7 @@ interface TagInputProps {
   error?: string;
   suggestions: string[];
   containerClassName?: string;
-  registerField?: (fieldName: any, element: HTMLInputElement | null) => void;
+  registerField?: (fieldName: string, element: HTMLInputElement | null) => void;
 }
 
 export default function TagInput({

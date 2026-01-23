@@ -15,7 +15,7 @@ import {
   getSpaces,
 } from "@/lib/spacesStorage";
 import { usePinnedViews } from "@/hooks/usePinnedViews";
-import type { PinnedView, Space } from "@/lib/types";
+import type { Space } from "@/lib/types";
 import { useUiStore } from "@/stores/useUiStore";
 
 export type SpaceSelection = "all" | string;

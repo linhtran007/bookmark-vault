@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
 
+type SyncSettingsRow = {
+  sync_enabled: boolean;
+  sync_mode: string;
+  last_sync_at: string | null;
+};
+
 // GET: Retrieve user's sync settings
 export async function GET() {
   const authResult = await auth();
@@ -12,7 +18,7 @@ export async function GET() {
   }
 
   try {
-    const result = await query(
+    const result = await query<SyncSettingsRow>(
       `SELECT sync_enabled, sync_mode, last_sync_at 
        FROM sync_settings 
        WHERE user_id = $1`,
@@ -65,7 +71,7 @@ export async function PUT(req: Request) {
     }
 
     // Upsert settings
-    const result = await query(
+    const result = await query<SyncSettingsRow>(
       `INSERT INTO sync_settings (user_id, sync_enabled, sync_mode)
        VALUES ($1, $2, $3)
        ON CONFLICT (user_id) 

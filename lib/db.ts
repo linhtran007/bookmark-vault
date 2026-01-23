@@ -19,10 +19,13 @@ export function getPool() {
   return pool;
 }
 
-export async function query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
+export async function query<T = unknown>(
+  sql: string,
+  params: Array<unknown> = []
+): Promise<T[]> {
   try {
     const pool = getPool();
-    const result = await (pool as any).query(sql, params);
+    const result = await pool.query(sql, params);
     return result as T[];
   } catch (error) {
     console.error('Database query error:', error);

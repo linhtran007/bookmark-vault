@@ -35,7 +35,11 @@ export async function POST(req: Request) {
     for (const op of operations) {
       const { recordId, recordType = 'bookmark', ciphertext, deleted } = op;
 
-      const existing = await query(
+      type ExistingRow = { id: string; version: number };
+      type InsertedRow = { id: string; version: number };
+      type UpdatedRow = { version: number };
+
+      const existing = await query<ExistingRow>(
         `SELECT id, version
          FROM records 
          WHERE record_id = $1 AND user_id = $2 AND record_type = $3`,
@@ -44,7 +48,7 @@ export async function POST(req: Request) {
 
       if (existing.length === 0) {
         // Insert new record
-        const inserted = await query(
+        const inserted = await query<InsertedRow>(
           `INSERT INTO records (user_id, record_id, record_type, ciphertext, encrypted, data, version, deleted)
            VALUES ($1, $2, $3, $4, true, NULL, 1, $5)
            RETURNING id, version`,
@@ -53,7 +57,7 @@ export async function POST(req: Request) {
         results.push({ recordId, version: inserted[0].version });
       } else {
         // Update existing record (last-write-wins)
-        const updated = await query(
+        const updated = await query<UpdatedRow>(
           `UPDATE records
            SET ciphertext = $1, encrypted = true, data = NULL, version = version + 1, deleted = $2, updated_at = NOW()
            WHERE id = $3

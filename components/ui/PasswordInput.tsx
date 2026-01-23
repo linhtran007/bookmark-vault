@@ -9,7 +9,7 @@ interface PasswordInputProps
   label?: string;
 }
 
-export function PasswordInput({ label, ...props }: PasswordInputProps) {
+export function PasswordInput(props: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (

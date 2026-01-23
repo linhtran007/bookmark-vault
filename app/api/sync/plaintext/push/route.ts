@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
 import { calculateChecksum } from '@/lib/checksum';
-import type { RecordType } from '@/lib/types';
+import type { PlaintextRecord, RecordType } from '@/lib/types';
 
 interface PlaintextPushOperation {
   recordId: string;
@@ -50,7 +50,12 @@ export async function POST(req: Request) {
 
       // Atomic UPSERT: Insert or update in single operation
       // Handles UUID conflicts gracefully and prevents duplicates
-      const upserted = await query(
+      type UpsertedRow = {
+        version: number;
+        updated_at: string;
+      };
+
+      const upserted = await query<UpsertedRow>(
         `INSERT INTO records (user_id, record_id, record_type, data, encrypted, ciphertext, version, deleted)
          VALUES ($1, $2, $3, $4, false, NULL, 1, $5)
          ON CONFLICT (user_id, record_id, record_type) DO UPDATE SET
@@ -80,7 +85,15 @@ export async function POST(req: Request) {
     );
 
     // Recalculate checksum after successful push
-    const allRecords = await query(
+    type PlaintextRecordRow = {
+      record_id: string;
+      record_type: RecordType;
+      data: PlaintextRecord['data'];
+      version: number;
+      updated_at: string;
+    };
+
+    const allRecords = await query<PlaintextRecordRow>(
       `SELECT record_id, record_type, data, version, updated_at
        FROM records
        WHERE user_id = $1 AND encrypted = false AND deleted = false
@@ -93,7 +106,7 @@ export async function POST(req: Request) {
       recordType: r.record_type,
       data: r.data,
       version: r.version,
-      deleted: r.deleted,
+      deleted: false,
       updatedAt: r.updated_at,
     }));
 

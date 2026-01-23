@@ -14,7 +14,7 @@ import type {
   SyncPushResult,
   SyncConflict,
 } from '@/lib/types';
-import { saveChecksumMeta, type ChecksumMeta } from '@/lib/storage';
+import { saveChecksumMeta } from '@/lib/storage';
 
 // Outbox for pending operations
 const OUTBOX_KEY = 'plaintext-sync-outbox';

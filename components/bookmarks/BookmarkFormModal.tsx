@@ -7,7 +7,6 @@ import { useBookmarkForm } from "@/hooks/useBookmarkForm";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { getUniqueTags } from "@/lib/bookmarks";
 import { getSpaces, PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
-import { Bookmark } from "@/lib/types";
 import { useUiStore } from "@/stores/useUiStore";
 
 interface BookmarkFormModalProps {
@@ -72,7 +71,7 @@ export default function BookmarkFormModal({
         spaces.map((space) => ({ value: space.id, label: space.name }))
       );
     }
-  }, [isOpen, editingBookmark, resetForm, selectedSpaceId]);
+  }, [isOpen, editingBookmark, resetForm, selectedSpaceId, initialBookmark]);
 
   const safeSpaceOptions = useMemo(() => {
     if (spaceOptions.length > 0) return spaceOptions;

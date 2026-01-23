@@ -13,18 +13,23 @@ export interface SyncOperation {
 
 const OUTBOX_KEY = 'vault-sync-outbox';
 
-function normalizeOutboxItem(op: any): SyncOperation | null {
+function normalizeOutboxItem(op: unknown): SyncOperation | null {
   if (!op || typeof op !== 'object') return null;
 
-  const recordId = typeof op.recordId === 'string' ? op.recordId : null;
-  const recordType = (op.recordType as RecordType | undefined) ?? 'bookmark';
-  const baseVersion = typeof op.baseVersion === 'number' ? op.baseVersion : 0;
-  const ciphertext = typeof op.ciphertext === 'string' ? op.ciphertext : null;
-  const deleted = typeof op.deleted === 'boolean' ? op.deleted : false;
+  const candidate = op as Partial<SyncOperation>;
+  const recordId = typeof candidate.recordId === 'string' ? candidate.recordId : null;
+  const recordType = typeof candidate.recordType === 'string'
+    ? (candidate.recordType as RecordType)
+    : 'bookmark';
+  const baseVersion = typeof candidate.baseVersion === 'number' ? candidate.baseVersion : 0;
+  const ciphertext = typeof candidate.ciphertext === 'string' ? candidate.ciphertext : null;
+  const deleted = typeof candidate.deleted === 'boolean' ? candidate.deleted : false;
 
-  const id = typeof op.id === 'string' ? op.id : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  const createdAt = typeof op.createdAt === 'number' ? op.createdAt : Date.now();
-  const retries = typeof op.retries === 'number' ? op.retries : 0;
+  const id = typeof candidate.id === 'string'
+    ? candidate.id
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const createdAt = typeof candidate.createdAt === 'number' ? candidate.createdAt : Date.now();
+  const retries = typeof candidate.retries === 'number' ? candidate.retries : 0;
 
   if (!recordId || !ciphertext) return null;
 

@@ -11,7 +11,7 @@ interface ConflictResolverProps {
   onCancel?: () => void;
 }
 
-export function ConflictResolver({ conflict, onResolve, onCancel }: ConflictResolverProps) {
+export function ConflictResolver({ conflict: _conflict, onResolve, onCancel }: ConflictResolverProps) {
   const [selectedStrategy, setSelectedStrategy] = useState<'keep-both' | 'local-wins' | 'remote-wins'>('keep-both');
 
   return (

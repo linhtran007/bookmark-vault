@@ -23,7 +23,9 @@ export async function POST(req: Request) {
     const wrappedKeyBinary = Buffer.from(wrappedKey, 'base64');
     const saltBinary = Buffer.from(salt, 'base64');
 
-    const result = await query(
+    type VaultRow = { id: string };
+
+    const result = await query<VaultRow>(
       `INSERT INTO vaults (user_id, wrapped_key, salt, kdf_params)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (user_id)

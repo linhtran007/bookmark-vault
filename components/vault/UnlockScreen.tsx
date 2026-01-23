@@ -25,7 +25,7 @@ export function UnlockScreen() {
 
     try {
       await unlock(passphrase);
-    } catch (err) {
+    } catch {
       setError('Incorrect passphrase. Please try again.');
       setPassphrase('');
     } finally {

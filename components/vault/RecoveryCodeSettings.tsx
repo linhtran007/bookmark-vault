@@ -18,7 +18,6 @@ export function RecoveryCodeSettings() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newCodes, setNewCodes] = useState<string[]>([]);
-  const [showCodes, setShowCodes] = useState(false);
 
   const { regenerateRecoveryCodes } = useRecoveryCodeRegenerate();
   const { vaultEnvelope } = useVaultStore();

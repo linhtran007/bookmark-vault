@@ -22,8 +22,9 @@ export async function runMigrations() {
     for (const statement of statements) {
       try {
         await query(statement, []);
-      } catch (error: any) {
-        if (error.code === '42P07') {
+      } catch (error) {
+        const err = error as { code?: string };
+        if (err.code === '42P07') {
           console.log(`⚠ Statement already exists, skipping`);
         } else {
           console.error(`✗ Migration ${file} failed:`, error);

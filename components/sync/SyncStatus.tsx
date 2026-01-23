@@ -5,7 +5,6 @@ import { useAuth } from '@clerk/nextjs';
 import { Cloud, CloudOff, RefreshCw, CheckCircle } from "lucide-react";
 import { useVaultStore } from "@/stores/vault-store";
 import { useSyncEngine } from "@/hooks/useSyncEngine";
-import { getOutbox } from "@/lib/sync-outbox";
 
 export function SyncStatus() {
   const { vaultEnvelope, isUnlocked } = useVaultStore();

@@ -32,6 +32,10 @@ interface DisableResponse {
   error?: string;
 }
 
+type VaultRow = { id: string };
+type CountRow = { count: string };
+type DeleteRow = { id: string };
+
 export async function POST(req: Request) {
   const authResult = await auth();
   const userId = authResult.userId;
@@ -47,7 +51,7 @@ export async function POST(req: Request) {
     switch (action) {
       case 'verify': {
         // PHASE 1: Verify vault exists and get record counts
-        const vault = await query(
+        const vault = await query<VaultRow>(
           'SELECT id FROM vaults WHERE user_id = $1',
           [userId]
         );
@@ -57,7 +61,7 @@ export async function POST(req: Request) {
         }
 
         // Get count of encrypted records
-        const countResult = await query(
+        const countResult = await query<CountRow>(
           'SELECT COUNT(*) as count FROM records WHERE user_id = $1 AND encrypted = true',
           [userId]
         );
@@ -78,14 +82,14 @@ export async function POST(req: Request) {
           await query('BEGIN', []);
 
           // Count encrypted records before deletion (for verification)
-          const countBefore = await query(
+          const countBefore = await query<CountRow>(
             'SELECT COUNT(*) as count FROM records WHERE user_id = $1 AND encrypted = true',
             [userId]
           );
           const countBeforeValue = parseInt(countBefore[0].count, 10);
 
           // Delete all encrypted records
-          const deleteResult = await query(
+          const deleteResult = await query<DeleteRow>(
             'DELETE FROM records WHERE user_id = $1 AND encrypted = true RETURNING id',
             [userId]
           );
@@ -128,7 +132,7 @@ export async function POST(req: Request) {
         try {
           await query('BEGIN', []);
 
-          const result = await query(
+          const result = await query<DeleteRow>(
             'DELETE FROM records WHERE user_id = $1 AND encrypted = false RETURNING id',
             [userId]
           );
@@ -156,7 +160,7 @@ export async function POST(req: Request) {
           await query('BEGIN', []);
 
           // Delete vault
-          const vaultResult = await query(
+          const vaultResult = await query<VaultRow>(
             'DELETE FROM vaults WHERE user_id = $1 RETURNING id',
             [userId]
           );

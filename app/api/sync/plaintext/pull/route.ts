@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
-import type { RecordType } from '@/lib/types';
+import type { PlaintextRecord, RecordType } from '@/lib/types';
 
 export async function GET(req: NextRequest) {
   const authResult = await auth();
@@ -48,7 +48,16 @@ export async function GET(req: NextRequest) {
     queryText += ` ORDER BY updated_at ASC LIMIT $${paramIndex}`;
     params.push(limit);
 
-    const records = await query(queryText, params);
+    type PlaintextRecordRow = {
+      record_id: string;
+      record_type: RecordType;
+      data: PlaintextRecord['data'];
+      version: number;
+      deleted: boolean;
+      updated_at: string;
+    };
+
+    const records = await query<PlaintextRecordRow>(queryText, params);
 
     const nextCursor = records.length > 0
       ? records[records.length - 1].updated_at

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Modal, Input, Button } from '@/components/ui';
-import { useVaultEnable, type VaultEnableProgress, type DataCounts, type PreparedVault } from '@/hooks/useVaultEnable';
+import { useVaultEnable, type DataCounts, type VaultEnableProgress } from '@/hooks/useVaultEnable';
 import { useVaultStore } from '@/stores/vault-store';
 import { RecoveryCodeDisplay } from './RecoveryCodeDisplay';
 import {
@@ -30,7 +30,7 @@ interface PasswordStrength {
   color: string;
 }
 
-export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultModalProps) {
+export function EnableVaultModal({ isOpen, onClose, onComplete: _onComplete }: EnableVaultModalProps) {
   const [passphrase, setPassphrase] = useState('');
   const [confirmPassphrase, setConfirmPassphrase] = useState('');
   const [showPassphrase, setShowPassphrase] = useState(false);
@@ -41,7 +41,6 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
   const [showWarning, setShowWarning] = useState(true);
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
   const [dataCounts, setDataCounts] = useState<DataCounts | null>(null);
-  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
   const [codesConfirmed, setCodesConfirmed] = useState(false);
   
   // Track if enable process has started - persists across re-renders
@@ -79,7 +78,6 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
       setShowWarning(true);
       setPasswordStrength(null);
       setLocalComplete(false);
-      setShowRecoveryCodes(false);
       setCodesConfirmed(false);
       resetProgress();
       resetPreparedVault();
@@ -157,7 +155,6 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
     }
 
     setCodesConfirmed(true);
-    setShowRecoveryCodes(false);
 
     try {
       // PHASE 2: Execute encryption with prepared vault
@@ -175,7 +172,6 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
   const handleCancelAfterCodes = () => {
     resetPreparedVault();
     resetProgress();
-    setShowRecoveryCodes(false);
     setCodesConfirmed(false);
     enableStartedRef.current = false;
     setError(null);

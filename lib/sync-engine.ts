@@ -1,4 +1,4 @@
-import { getOutbox, addToOutbox, removeFromOutbox, updateOutboxItem, clearOutbox, type SyncOperation } from './sync-outbox';
+import { getOutbox, addToOutbox, clearOutbox, type SyncOperation } from './sync-outbox';
 
 
 export interface SyncResult {
@@ -26,7 +26,6 @@ export interface PullResult {
 const PUSH_URL = '/api/sync/push';
 const PULL_URL = '/api/sync/pull';
 const MAX_BATCH_SIZE = 50;
-const MAX_RETRIES = 3;
 
 async function pushOperations(operations: SyncOperation[]): Promise<SyncResult> {
   const response = await fetch(PUSH_URL, {
@@ -43,7 +42,7 @@ async function pushOperations(operations: SyncOperation[]): Promise<SyncResult> 
     throw new Error(`Push failed: ${response.statusText}`);
   }
 
-  const data = await response.json();
+  await response.json();
   return { success: true, pushed: operations.length, conflicts: [] };
 }
 
@@ -65,31 +64,6 @@ async function pullRecords(cursor?: string, limit: number = 100): Promise<PullRe
     nextCursor: data.nextCursor,
     hasMore: data.hasMore,
   };
-}
-
-async function processOutboxItem(op: SyncOperation): Promise<void> {
-  try {
-    const result = await pushOperations([op]);
-    if (result.success) {
-      removeFromOutbox(op.id);
-    } else if (result.conflicts.length > 0) {
-      for (const conflict of result.conflicts) {
-        if (conflict.recordId === op.recordId) {
-          if (op.retries >= MAX_RETRIES) {
-            removeFromOutbox(op.id);
-          } else {
-            updateOutboxItem(op.id, { retries: op.retries + 1 });
-          }
-        }
-      }
-    }
-  } catch (error) {
-    if (op.retries >= MAX_RETRIES) {
-      removeFromOutbox(op.id);
-    } else {
-      updateOutboxItem(op.id, { retries: op.retries + 1 });
-    }
-  }
 }
 
 export async function syncPush(): Promise<SyncResult> {

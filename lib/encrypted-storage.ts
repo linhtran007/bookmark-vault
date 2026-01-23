@@ -422,7 +422,7 @@ export async function encryptForSync<T extends { id: string; createdAt: string }
 export async function markDeletedForSync(
   recordId: string,
   recordType: RecordType,
-  vaultKey: Uint8Array
+  _vaultKey: Uint8Array
 ): Promise<{ recordId: string; ciphertext: string; version: number } | null> {
   const records = loadAllEncryptedRecords(recordType);
   const existing = records.find((r) => r.recordId === recordId);

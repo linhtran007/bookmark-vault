@@ -19,11 +19,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
 import { calculateChecksum } from '@/lib/checksum';
-
-interface VerificationRequest {
-  expectedCount: number;
-  expectedChecksum: string;
-}
+import type { PlaintextRecord, RecordType } from '@/lib/types';
 
 interface VerificationResponse {
   verified: boolean;
@@ -65,7 +61,16 @@ export async function GET(req: Request) {
     }
 
     // Fetch all plaintext records from database
-    const records = await query(
+    type PlaintextRecordRow = {
+      record_id: string;
+      record_type: RecordType;
+      data: PlaintextRecord['data'];
+      version: number;
+      updated_at: string;
+      deleted: boolean;
+    };
+
+    const records = await query<PlaintextRecordRow>(
       `SELECT record_id, record_type, data, version, updated_at, deleted
        FROM records
        WHERE user_id = $1 AND encrypted = false AND deleted = false

@@ -1,6 +1,7 @@
 "use client";
 
 import { cloneElement, useEffect, isValidElement, useRef, useState } from "react";
+import type { ReactElement, Ref, MouseEvent as ReactMouseEvent } from "react";
 import { cn } from "@/lib/utils";
 
 interface DropdownMenuProps {
@@ -46,15 +47,22 @@ export default function DropdownMenu({
     };
   }, [isOpen]);
 
+  type TriggerElement = ReactElement<{
+    onClick?: (event: ReactMouseEvent) => void;
+    ref?: Ref<HTMLElement>;
+    "aria-expanded"?: boolean;
+    "aria-haspopup"?: boolean;
+  }>;
+
   const triggerElement = isValidElement(trigger)
-    ? cloneElement(trigger as React.ReactElement<any>, {
+    ? cloneElement(trigger as TriggerElement, {
         ref: triggerRef,
-        onClick: (e: React.MouseEvent) => {
+        onClick: (event: ReactMouseEvent) => {
           setIsOpen(!isOpen);
           // Also call the original onClick if it exists
-          const originalOnClick = (trigger as React.ReactElement<any>).props.onClick;
+          const originalOnClick = (trigger as TriggerElement).props.onClick;
           if (originalOnClick) {
-            originalOnClick(e);
+            originalOnClick(event);
           }
         },
         "aria-expanded": isOpen,

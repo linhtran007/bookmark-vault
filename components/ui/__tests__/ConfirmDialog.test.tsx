@@ -76,7 +76,7 @@ describe('ConfirmDialog', () => {
   });
 
   it('shows danger variant styling', () => {
-    const { container } = render(
+    render(
       <ConfirmDialog {...defaultProps} variant="danger" />
     );
 

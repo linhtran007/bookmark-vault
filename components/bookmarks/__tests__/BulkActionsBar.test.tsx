@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import BulkActionsBar from '@voc/components/bookmarks/BulkActionsBar';
 
 describe('BulkActionsBar', () => {

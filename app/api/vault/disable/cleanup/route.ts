@@ -28,6 +28,9 @@ interface CleanupResponse {
   error?: string;
 }
 
+type CountRow = { count: string };
+type DeleteRow = { id: string };
+
 export async function POST(req: Request) {
   const authResult = await auth();
   const userId = authResult.userId;
@@ -42,7 +45,7 @@ export async function POST(req: Request) {
 
     // Safety check: verify that encrypted records still exist
     // If no encrypted records exist, we're in plaintext mode and cleanup isn't needed
-    const encryptedCheck = await query(
+    const encryptedCheck = await query<CountRow>(
       'SELECT COUNT(*) as count FROM records WHERE user_id = $1 AND encrypted = true',
       [userId]
     );
@@ -63,7 +66,7 @@ export async function POST(req: Request) {
     if (recordIds.length > 0 && recordTypes.length === recordIds.length) {
       // Delete specific records by ID and type
       for (let i = 0; i < recordIds.length; i++) {
-        const result = await query(
+        const result = await query<DeleteRow>(
           `DELETE FROM records
            WHERE user_id = $1 AND record_id = $2 AND record_type = $3 AND encrypted = false
            RETURNING id`,
@@ -73,7 +76,7 @@ export async function POST(req: Request) {
       }
     } else {
       // Delete all plaintext records for this user
-      const result = await query(
+      const result = await query<DeleteRow>(
         `DELETE FROM records
          WHERE user_id = $1 AND encrypted = false
          RETURNING id`,
@@ -83,7 +86,7 @@ export async function POST(req: Request) {
     }
 
     // Get remaining encrypted record count
-    const remainingEncrypted = await query(
+    const remainingEncrypted = await query<CountRow>(
       'SELECT COUNT(*) as count FROM records WHERE user_id = $1 AND encrypted = true',
       [userId]
     );

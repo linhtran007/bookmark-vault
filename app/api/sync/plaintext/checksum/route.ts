@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
 import { calculateChecksum } from '@/lib/checksum';
+import type { PlaintextRecord, RecordType } from '@/lib/types';
 
 /**
  * GET /api/sync/plaintext/checksum
@@ -31,7 +32,15 @@ export async function GET() {
 
   try {
     // Fetch all non-encrypted, non-deleted records for user
-    const records = await query(
+    type PlaintextRecordRow = {
+      record_id: string;
+      record_type: RecordType;
+      data: PlaintextRecord['data'];
+      version: number;
+      updated_at: string;
+    };
+
+    const records = await query<PlaintextRecordRow>(
       `SELECT record_id, record_type, data, version, updated_at
        FROM records
        WHERE user_id = $1 AND encrypted = false AND deleted = false
@@ -45,7 +54,7 @@ export async function GET() {
       recordType: r.record_type,
       data: r.data,
       version: r.version,
-      deleted: r.deleted,
+      deleted: false,
       updatedAt: r.updated_at,
     }));
 

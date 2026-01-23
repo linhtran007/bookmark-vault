@@ -4,10 +4,18 @@ export interface EncryptedData {
   tag: Uint8Array;
 }
 
+function toArrayBuffer(data: Uint8Array): ArrayBuffer {
+  return data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength
+  ) as ArrayBuffer;
+}
+
 export async function deriveKeyFromPassphrase(
   passphrase: string,
   salt: Uint8Array
 ): Promise<CryptoKey> {
+  const saltBuffer = toArrayBuffer(salt);
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
@@ -20,7 +28,7 @@ export async function deriveKeyFromPassphrase(
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt as unknown as any,
+      salt: saltBuffer,
       iterations: 100000,
       hash: 'SHA-256',
     },
@@ -42,9 +50,10 @@ export async function generateVaultKey(): Promise<Uint8Array> {
 }
 
 export async function importVaultKey(keyData: Uint8Array): Promise<CryptoKey> {
+  const keyBuffer = toArrayBuffer(keyData);
   return crypto.subtle.importKey(
     'raw',
-    keyData as unknown as any,
+    keyBuffer,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
@@ -56,10 +65,11 @@ export async function encryptData(
   key: CryptoKey
 ): Promise<EncryptedData> {
   const iv = crypto.getRandomValues(new Uint8Array(12));
+  const dataBuffer = toArrayBuffer(data);
   const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: toArrayBuffer(iv) },
     key,
-    data as unknown as any
+    dataBuffer
   );
 
   const encrypted = new Uint8Array(ciphertext);
@@ -81,9 +91,12 @@ export async function decryptData(
 
   return new Uint8Array(
     await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: encrypted.iv as unknown as any },
+      {
+        name: 'AES-GCM',
+        iv: toArrayBuffer(encrypted.iv),
+      },
       key,
-      combined as unknown as any
+      toArrayBuffer(combined)
     )
   );
 }

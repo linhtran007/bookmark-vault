@@ -6,7 +6,7 @@ import BookmarkFormModal from "@/components/bookmarks/BookmarkFormModal";
 import ImportExportModal from "@/components/bookmarks/ImportExportModal";
 import BookmarkList from "@/components/BookmarkList";
 import { OnboardingPanel } from "@/components/onboarding/OnboardingPanel";
-import { BottomSheet, Button } from "@/components/ui";
+import { BottomSheet } from "@/components/ui";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { BookmarksProvider } from "@/hooks/useBookmarks";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -67,6 +67,11 @@ export default function Home() {
     cardsContainerRef,
   });
 
+  const sidebarSkeletonKeys = useMemo(
+    () => Array.from({ length: 6 }, (_, index) => `sidebar-skeleton-${index}`),
+    []
+  );
+
   const spacesLabel = useMemo(() => {
     if (selectedSpaceId === "all") return "All spaces";
     const match = getSpaces().find((space) => space.id === selectedSpaceId);
@@ -99,8 +104,8 @@ export default function Home() {
                 <div className="space-y-3">
                   <div className="h-5 w-20 rounded bg-zinc-200 dark:bg-slate-700 animate-pulse" />
                   <div className="space-y-2">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-9 w-full rounded bg-zinc-200 dark:bg-slate-700 animate-pulse" />
+                    {sidebarSkeletonKeys.map((key) => (
+                      <div key={key} className="h-9 w-full rounded bg-zinc-200 dark:bg-slate-700 animate-pulse" />
                     ))}
                   </div>
                 </div>

@@ -30,14 +30,9 @@ function BookmarkToolbar({
   const setSearchQuery = useUiStore((s) => s.setSearchQuery);
   const setSelectedTag = useUiStore((s) => s.setSelectedTag);
   const setSortKey = useUiStore((s) => s.setSortKey);
-  const clearSearch = useUiStore((s) => s.clearSearch);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
-  };
-
-  const handleClearSearch = () => {
-    clearSearch();
   };
 
   const handleTagChange = (event: React.ChangeEvent<HTMLSelectElement>) => {

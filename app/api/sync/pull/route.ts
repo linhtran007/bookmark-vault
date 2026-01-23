@@ -40,7 +40,16 @@ export async function GET(req: NextRequest) {
     queryText += ` ORDER BY updated_at ASC LIMIT $${paramIndex}`;
     params.push(limit);
 
-    const records = await query(queryText, params);
+    type EncryptedRecordRow = {
+      record_id: string;
+      record_type: RecordType | null;
+      ciphertext: string | Buffer | null;
+      version: number;
+      deleted: boolean;
+      updated_at: string;
+    };
+
+    const records = await query<EncryptedRecordRow>(queryText, params);
 
     const nextCursor = records.length > 0
       ? records[records.length - 1].updated_at

@@ -10,7 +10,7 @@
  * - On browser close: sessionStorage clears automatically (vault locks)
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { useVaultStore, fetchEnvelopeFromServer } from '@/stores/vault-store';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
@@ -26,8 +26,6 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
   // Track previous sign-in state to detect sign-out
   const wasSignedIn = useRef<boolean | null>(null);
   
-  // Track if we're currently fetching from server
-  const [isFetching, setIsFetching] = useState(false);
   const fetchAttempted = useRef<string | null>(null);
 
   useEffect(() => {
@@ -49,14 +47,12 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
       // This avoids unnecessary /api/vault calls when user is in plaintext mode
       if (userId && syncMode === 'e2e' && fetchAttempted.current !== userId) {
         fetchAttempted.current = userId;
-        setIsFetching(true);
-        
         fetchEnvelopeFromServer(userId)
           .catch((error) => {
             console.error('[VaultInitializer] Failed to fetch envelope from server:', error);
           })
           .finally(() => {
-            setIsFetching(false);
+            fetchAttempted.current = userId;
           });
       }
     }
@@ -71,14 +67,12 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
     if (fetchAttempted.current === user.id) return;
 
     fetchAttempted.current = user.id;
-    setIsFetching(true);
-
     fetchEnvelopeFromServer(user.id)
       .catch((error) => {
         console.error('[VaultInitializer] Failed to fetch envelope from server:', error);
       })
       .finally(() => {
-        setIsFetching(false);
+        fetchAttempted.current = user.id;
       });
   }, [isLoaded, isSignedIn, user, syncMode]);
 
