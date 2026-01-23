@@ -6,6 +6,7 @@ import { useClerk } from '@clerk/nextjs';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import { useVaultUnlock } from '@/hooks/useVaultUnlock';
+import { RecoveryCodeUnlock } from './RecoveryCodeUnlock';
 
 export function UnlockScreen() {
   const [passphrase, setPassphrase] = useState('');
@@ -13,6 +14,7 @@ export function UnlockScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const { unlock } = useVaultUnlock();
   const { signOut } = useClerk();
 
@@ -47,6 +49,21 @@ export function UnlockScreen() {
       }
     }
   };
+
+  if (useRecoveryCode) {
+    return (
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800">
+          <RecoveryCodeUnlock
+            onCancel={() => setUseRecoveryCode(false)}
+            onSuccess={() => {
+              // Unlock successful - the component handles the rest
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center z-50 p-4">
@@ -111,7 +128,17 @@ export function UnlockScreen() {
           </Button>
         </form>
 
-        <div className="mt-6">
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setUseRecoveryCode(true)}
+            className="w-full py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+          >
+            Forgot passphrase? Use recovery code
+          </button>
+        </div>
+
+        <div className="mt-4">
           <button
             type="button"
             onClick={() => setShowLogoutDialog(true)}
@@ -122,7 +149,7 @@ export function UnlockScreen() {
           </button>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-800">
+        <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800">
           <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
             Your passphrase is never stored or transmitted.
             <br />

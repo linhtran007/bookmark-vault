@@ -133,29 +133,32 @@ function clearSessionState(): void {
 interface VaultState {
   // Current user ID (set when user signs in)
   currentUserId: string | null;
-  
+
   // Session state (stored in sessionStorage)
   isUnlocked: boolean;
   vaultKey: Uint8Array | null;
-  
+
   // Envelope for current user (loaded from localStorage)
   vaultEnvelope: VaultKeyEnvelope | null;
-  
+
   // Initialize store with user ID (call on sign-in / app load)
   initialize: (userId: string | null) => void;
-  
+
   // Set envelope for current user (saves to localStorage)
   setEnvelope: (envelope: VaultKeyEnvelope) => void;
-  
+
+  // Update envelope for current user (saves to localStorage and updates state)
+  updateEnvelope: (envelope: VaultKeyEnvelope) => void;
+
   // Clear envelope for current user (removes from localStorage)
   clearEnvelope: () => void;
-  
+
   // Unlock vault (saves to sessionStorage)
   setUnlocked: (unlocked: boolean, key?: Uint8Array) => void;
-  
+
   // Lock vault (clears sessionStorage unlock state)
   lock: () => void;
-  
+
   // Clear all session state (call on sign-out)
   clearSession: () => void;
 }
@@ -206,7 +209,18 @@ export const useVaultStore = create<VaultState>()((set, get) => {
         console.warn('Cannot set envelope without a current user');
         return;
       }
-      
+
+      saveEnvelope(currentUserId, envelope);
+      set({ vaultEnvelope: envelope });
+    },
+
+    updateEnvelope: (envelope: VaultKeyEnvelope) => {
+      const { currentUserId } = get();
+      if (!currentUserId) {
+        console.warn('Cannot update envelope without a current user');
+        return;
+      }
+
       saveEnvelope(currentUserId, envelope);
       set({ vaultEnvelope: envelope });
     },

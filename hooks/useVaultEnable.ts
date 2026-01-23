@@ -24,6 +24,7 @@ export interface VaultEnableProgress {
   encryptProgress?: MigrationProgress;
   syncProgress?: number;
   error?: string;
+  recoveryCodes?: string[];
 }
 
 export interface DataCounts {
@@ -75,15 +76,18 @@ export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boo
       clearEnvelope();
       clearAllEncryptedStorage();
       
-      // Phase 1: Generate vault key and create envelope
+      // Phase 1: Generate vault key and create envelope (with recovery codes)
       vaultKey = await crypto.generateVaultKey();
-      const envelope = await crypto.createKeyEnvelope(passphrase, vaultKey);
+      const { envelope, recoveryCodes } = await crypto.createKeyEnvelope(passphrase, vaultKey, true);
 
       // Verify passphrase works
       const testKey = await crypto.unwrapVaultKeyFromEnvelope(envelope, passphrase);
       if (!testKey) {
         throw new Error('Passphrase verification failed');
       }
+
+      // Store recovery codes in progress for UI to display
+      setProgress({ phase: 'generating', recoveryCodes });
 
       // Phase 2: Encrypt all local data
       setProgress({ phase: 'encrypting' });

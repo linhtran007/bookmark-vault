@@ -58,11 +58,20 @@ export interface KdfParams {
   keyLength: number;
 }
 
+export interface RecoveryCodeWrapper {
+  id: string;
+  wrappedKey: string;
+  salt: string;
+  codeHash: string;
+  usedAt: string | null;
+}
+
 export interface VaultKeyEnvelope {
   wrappedKey: string;
   salt: string;
   kdfParams: KdfParams;
   version: number;
+  recoveryWrappers?: RecoveryCodeWrapper[];
 }
 
 export interface EncryptedRecord {

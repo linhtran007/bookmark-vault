@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Modal, Input, Button } from '@/components/ui';
 import { useVaultEnable, type VaultEnableProgress, type DataCounts } from '@/hooks/useVaultEnable';
 import { useVaultStore } from '@/stores/vault-store';
+import { RecoveryCodeDisplay } from './RecoveryCodeDisplay';
 import {
   Shield,
   Key,
@@ -40,6 +41,7 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
   const [showWarning, setShowWarning] = useState(true);
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
   const [dataCounts, setDataCounts] = useState<DataCounts | null>(null);
+  const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
   
   // Track if enable process has started - persists across re-renders
   const enableStartedRef = useRef(false);
@@ -158,6 +160,18 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
 
   // Show progress UI while we have progress state
   if (progress) {
+    // Show recovery codes after vault is enabled
+    if (progress.phase === 'complete' && progress.recoveryCodes && !showRecoveryCodes) {
+      return (
+        <Modal isOpen={isOpen} onClose={() => {}} title="Save Your Recovery Codes">
+          <RecoveryCodeDisplay
+            codes={progress.recoveryCodes}
+            onConfirmed={() => setShowRecoveryCodes(true)}
+          />
+        </Modal>
+      );
+    }
+
     return (
       <Modal isOpen={isOpen} onClose={progress.phase === 'complete' || progress.phase === 'error' ? handleClose : () => {}} title="Enabling End-to-End Encryption">
         <div className="space-y-6 py-4">

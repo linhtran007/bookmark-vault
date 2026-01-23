@@ -126,12 +126,13 @@ export function base64ToArray(base64: string): Uint8Array {
   return bytes;
 }
 
-import type { VaultKeyEnvelope, KdfParams } from './types';
+import type { VaultKeyEnvelope, KdfParams, RecoveryCodeWrapper } from './types';
 
 export async function createKeyEnvelope(
   passphrase: string,
-  vaultKey: Uint8Array
-): Promise<VaultKeyEnvelope> {
+  vaultKey: Uint8Array,
+  generateRecoveries: boolean = true
+): Promise<{ envelope: VaultKeyEnvelope; recoveryCodes: string[] }> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const wrappingKey = await deriveKeyFromPassphrase(passphrase, salt);
   const wrappedKey = await wrapVaultKey(vaultKey, wrappingKey);
@@ -143,12 +144,39 @@ export async function createKeyEnvelope(
     keyLength: 256,
   };
 
-  return {
+  const envelope: VaultKeyEnvelope = {
     wrappedKey: arrayToBase64(wrappedKey),
     salt: arrayToBase64(salt),
     kdfParams,
     version: 1,
   };
+
+  let recoveryCodes: string[] = [];
+
+  if (generateRecoveries) {
+    recoveryCodes = await generateRecoveryCodes(8);
+    const wrappers: RecoveryCodeWrapper[] = [];
+
+    for (const code of recoveryCodes) {
+      const { wrappedKey: recoveryWrapped, salt: recoverySalt } = await wrapVaultKeyWithRecoveryCode(
+        vaultKey,
+        code
+      );
+      const codeHash = await hashRecoveryCode(code);
+
+      wrappers.push({
+        id: crypto.getRandomValues(new Uint8Array(16)).toString(),
+        wrappedKey: recoveryWrapped,
+        salt: recoverySalt,
+        codeHash,
+        usedAt: null,
+      });
+    }
+
+    envelope.recoveryWrappers = wrappers;
+  }
+
+  return { envelope, recoveryCodes };
 }
 
 export async function unwrapVaultKeyFromEnvelope(
@@ -160,4 +188,66 @@ export async function unwrapVaultKeyFromEnvelope(
     base64ToArray(envelope.salt)
   );
   return unwrapVaultKey(base64ToArray(envelope.wrappedKey), wrappingKey);
+}
+
+// Recovery Code Functions
+
+export function formatRecoveryCode(bytes: Uint8Array): string {
+  // Convert 12 random bytes to xxxx-xxxx-xxxx-xxxx format
+  // Each x is a character from base32-like alphabet (avoiding ambiguous chars)
+  const charset = 'ABCDEFGHIJKMNPQRSTUVWXYZ23456789'; // No 0, 1, L, O to avoid confusion
+  let code = '';
+  for (const byte of bytes) {
+    code += charset[byte % charset.length];
+  }
+  // Format as xxxx-xxxx-xxxx-xxxx
+  return `${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8, 12)}-${code.slice(12, 16)}`;
+}
+
+export function parseRecoveryCode(code: string): string {
+  // Remove dashes and uppercase
+  return code.replace(/-/g, '').toUpperCase();
+}
+
+export async function hashRecoveryCode(code: string): Promise<string> {
+  // SHA-256 hash of normalized recovery code
+  const normalized = parseRecoveryCode(code);
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(normalized));
+  return arrayToBase64(new Uint8Array(hashBuffer));
+}
+
+export async function generateRecoveryCodes(count: number = 8): Promise<string[]> {
+  const codes: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const randomBytes = crypto.getRandomValues(new Uint8Array(12));
+    codes.push(formatRecoveryCode(randomBytes));
+  }
+  return codes;
+}
+
+export async function wrapVaultKeyWithRecoveryCode(
+  vaultKey: Uint8Array,
+  recoveryCode: string
+): Promise<{ wrappedKey: string; salt: string }> {
+  const normalized = parseRecoveryCode(recoveryCode);
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const wrappingKey = await deriveKeyFromPassphrase(normalized, salt);
+  const wrappedKey = await wrapVaultKey(vaultKey, wrappingKey);
+
+  return {
+    wrappedKey: arrayToBase64(wrappedKey),
+    salt: arrayToBase64(salt),
+  };
+}
+
+export async function unwrapVaultKeyWithRecoveryCode(
+  wrappedKey: string,
+  salt: string,
+  recoveryCode: string
+): Promise<Uint8Array> {
+  const normalized = parseRecoveryCode(recoveryCode);
+  const wrappingKey = await deriveKeyFromPassphrase(normalized, base64ToArray(salt));
+  return unwrapVaultKey(base64ToArray(wrappedKey), wrappingKey);
 }
