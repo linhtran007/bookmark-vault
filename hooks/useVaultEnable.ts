@@ -90,7 +90,7 @@ export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boo
       setProgress({ phase: 'generating', recoveryCodes });
 
       // Phase 2: Encrypt all local data
-      setProgress({ phase: 'encrypting' });
+      setProgress((prev) => ({ ...prev, phase: 'encrypting' }));
       
       // Read bookmarks directly from storage
       const bookmarks = getBookmarks();

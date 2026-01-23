@@ -302,42 +302,26 @@ export function useVaultDisable() {
 
         for (const bookmark of bookmarks) {
           queuePlaintextOperation(bookmark.id, 'bookmark', bookmark, 0, false);
-          queuedCount++;
-          setProgress({
-            phase: 'uploading',
-            uploadProgress: {
-              total: totalItems,
-              completed: queuedCount,
-              iterations: 0,
-            },
-          });
         }
 
         for (const space of spaces) {
           queuePlaintextOperation(space.id, 'space', space, 0, false);
-          queuedCount++;
-          setProgress({
-            phase: 'uploading',
-            uploadProgress: {
-              total: totalItems,
-              completed: queuedCount,
-              iterations: 0,
-            },
-          });
         }
 
         for (const pinnedView of pinnedViews) {
           queuePlaintextOperation(pinnedView.id, 'pinned-view', pinnedView, 0, false);
-          queuedCount++;
-          setProgress({
-            phase: 'uploading',
-            uploadProgress: {
-              total: totalItems,
-              completed: queuedCount,
-              iterations: 0,
-            },
-          });
         }
+
+        // Set initial upload progress (all items queued, about to start upload)
+        setProgress({
+          phase: 'uploading',
+          step: 'Uploading plaintext records...',
+          uploadProgress: {
+            total: totalItems,
+            completed: 0,
+            iterations: 0,
+          },
+        });
 
         // Push plaintext to server with retry logic
         let uploadedCount = 0;
