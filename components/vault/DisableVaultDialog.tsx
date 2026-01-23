@@ -194,7 +194,7 @@ function ProgressPhase({
 }: {
   phase: VaultDisableProgress['phase'];
   decryptProgress?: VaultDisableProgress['decryptProgress'];
-  uploadProgress?: number;
+  uploadProgress?: VaultDisableProgress['uploadProgress'];
   error?: string;
 }) {
   const phases = [
@@ -214,8 +214,13 @@ function ProgressPhase({
       ? (decryptProgress.completed / decryptProgress.total) * 100 
       : 0;
     overallProgress = 10 + (decryptPct * 0.4); // 10-50%
+  } else if (phase === 'uploading' && uploadProgress) {
+    const uploadPct = uploadProgress.total > 0
+      ? (uploadProgress.completed / uploadProgress.total) * 100
+      : 0;
+    overallProgress = 50 + (uploadPct * 0.4); // 50-90%
   } else if (phase === 'uploading') {
-    overallProgress = 50 + ((uploadProgress || 0) * 0.4); // 50-90%
+    overallProgress = 50;
   } else if (phase === 'cleanup') overallProgress = 95;
   else if (phase === 'complete') overallProgress = 100;
   else if (phase === 'error') overallProgress = 0;
@@ -293,7 +298,8 @@ function ProgressPhase({
                 )}
                 {isActive && p.id === 'uploading' && uploadProgress !== undefined && (
                   <p className="text-sm text-rose-700 dark:text-rose-300">
-                    {uploadProgress}% uploaded
+                    {uploadProgress.completed} / {uploadProgress.total} items
+                    {uploadProgress.iterations > 0 && ` (attempt ${uploadProgress.iterations})`}
                   </p>
                 )}
               </div>
