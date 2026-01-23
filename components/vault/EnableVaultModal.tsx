@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Modal, Input, Button } from '@/components/ui';
-import { useVaultEnable, type VaultEnableProgress, type DataCounts } from '@/hooks/useVaultEnable';
+import { useVaultEnable, type VaultEnableProgress, type DataCounts, type PreparedVault } from '@/hooks/useVaultEnable';
 import { useVaultStore } from '@/stores/vault-store';
 import { RecoveryCodeDisplay } from './RecoveryCodeDisplay';
 import {
@@ -42,11 +42,21 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength | null>(null);
   const [dataCounts, setDataCounts] = useState<DataCounts | null>(null);
   const [showRecoveryCodes, setShowRecoveryCodes] = useState(false);
+  const [codesConfirmed, setCodesConfirmed] = useState(false);
   
   // Track if enable process has started - persists across re-renders
   const enableStartedRef = useRef(false);
   
-  const { enableVault, isEnabling, progress, resetProgress, getDataCounts } = useVaultEnable({
+  const {
+    prepareVault,
+    executeVaultEnable,
+    preparedVault,
+    resetPreparedVault,
+    isEnabling,
+    progress,
+    resetProgress,
+    getDataCounts
+  } = useVaultEnable({
     deletePlaintextCloudAfterEnable: false,
   });
 
@@ -69,9 +79,12 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
       setShowWarning(true);
       setPasswordStrength(null);
       setLocalComplete(false);
+      setShowRecoveryCodes(false);
+      setCodesConfirmed(false);
       resetProgress();
+      resetPreparedVault();
     }
-  }, [isOpen, resetProgress]);
+  }, [isOpen, resetProgress, resetPreparedVault]);
 
   const checkPasswordStrength = (pwd: string): PasswordStrength => {
     let score = 0;
@@ -120,23 +133,63 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
       return;
     }
 
-    // Mark that enable process has started - prevents reset on re-renders
     enableStartedRef.current = true;
 
     try {
-      await enableVault(passphrase);
-      setLocalComplete(true);
-      // Don't call onComplete() - let user see progress and click "Done" to reload
+      // PHASE 1: Generate vault key and codes (instant)
+      await prepareVault(passphrase);
+      // UI will show recovery codes via progress.recoveryCodes
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to enable vault. Please try again.';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate vault';
+      setError(errorMessage);
+      enableStartedRef.current = false;
+    }
+  };
+
+  /**
+   * Called when user confirms they've saved recovery codes
+   * Starts Phase 2: encryption and sync
+   */
+  const handleCodesConfirmed = async () => {
+    if (!preparedVault) {
+      setError('No prepared vault found. Please try again.');
+      return;
+    }
+
+    setCodesConfirmed(true);
+    setShowRecoveryCodes(false);
+
+    try {
+      // PHASE 2: Execute encryption with prepared vault
+      await executeVaultEnable(preparedVault);
+      setLocalComplete(true);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to enable vault';
       setError(errorMessage);
     }
   };
 
+  /**
+   * Cancel after seeing recovery codes (before encryption)
+   */
+  const handleCancelAfterCodes = () => {
+    resetPreparedVault();
+    resetProgress();
+    setShowRecoveryCodes(false);
+    setCodesConfirmed(false);
+    enableStartedRef.current = false;
+    setError(null);
+  };
+
   const handleClose = () => {
-    // Don't allow closing while enable is in progress
+    // Don't allow closing during encryption
     if (enableStartedRef.current && progress && progress.phase !== 'complete' && progress.phase !== 'error') {
-      return;
+      // Allow closing if only on recovery code display (Phase 1)
+      if (progress.phase === 'generating' && progress.recoveryCodes && !codesConfirmed) {
+        handleCancelAfterCodes();
+        return;
+      }
+      return; // Block during encryption
     }
     enableStartedRef.current = false;
     onClose();
@@ -160,13 +213,22 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
 
   // Show progress UI while we have progress state
   if (progress) {
-    // Show recovery codes after vault is enabled
-    if (progress.phase === 'complete' && progress.recoveryCodes && !showRecoveryCodes) {
+    // NEW: Show recovery codes after Phase 1 (BEFORE encryption)
+    if (
+      progress.phase === 'generating' &&
+      progress.recoveryCodes &&
+      !codesConfirmed
+    ) {
       return (
-        <Modal isOpen={isOpen} onClose={() => {}} title="Save Your Recovery Codes">
+        <Modal
+          isOpen={isOpen}
+          onClose={handleClose}
+          title="Save Your Recovery Codes"
+        >
           <RecoveryCodeDisplay
             codes={progress.recoveryCodes}
-            onConfirmed={() => setShowRecoveryCodes(true)}
+            onConfirmed={handleCodesConfirmed}
+            onCancel={handleCancelAfterCodes}
           />
         </Modal>
       );
@@ -359,13 +421,9 @@ export function EnableVaultModal({ isOpen, onClose, onComplete }: EnableVaultMod
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            className="flex-1 gap-2"
-            disabled={!canSubmit}
-          >
+          <Button type="submit" className="flex-1 gap-2" disabled={!canSubmit}>
             <Shield className="w-4 h-4" />
-            Enable & Sync
+            Generate Recovery Codes
           </Button>
         </div>
       </form>

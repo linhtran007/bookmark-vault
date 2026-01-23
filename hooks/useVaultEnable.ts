@@ -34,15 +34,26 @@ export interface DataCounts {
   total: number;
 }
 
+export interface PreparedVault {
+  vaultKey: Uint8Array;
+  envelope: any;
+  recoveryCodes: string[];
+}
+
 export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boolean }) {
   const [isEnabling, setIsEnabling] = useState(false);
   const [progress, setProgress] = useState<VaultEnableProgress | null>(null);
+  const [preparedVault, setPreparedVault] = useState<PreparedVault | null>(null);
   const { setEnvelope, setUnlocked, clearEnvelope } = useVaultStore();
 
   const deletePlaintextCloudAfterEnable = options?.deletePlaintextCloudAfterEnable ?? false;
 
   const resetProgress = useCallback(() => {
     setProgress(null);
+  }, []);
+
+  const resetPreparedVault = useCallback(() => {
+    setPreparedVault(null);
   }, []);
 
   // Get current data counts (read directly from storage)
@@ -58,11 +69,54 @@ export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boo
     };
   }, []);
 
-  const enableVault = useCallback(async (passphrase: string): Promise<void> => {
+  /**
+   * Phase 1: Generate vault key and recovery codes (instant, no side effects)
+   */
+  const prepareVault = useCallback(async (passphrase: string): Promise<PreparedVault> => {
     setIsEnabling(true);
     setProgress({ phase: 'generating' });
 
-    let vaultKey: Uint8Array | null = null;
+    try {
+      // Generate vault key
+      const vaultKey = await crypto.generateVaultKey();
+
+      // Create envelope with recovery codes
+      const { envelope, recoveryCodes } = await crypto.createKeyEnvelope(
+        passphrase,
+        vaultKey,
+        true
+      );
+
+      // Verify passphrase works
+      const testKey = await crypto.unwrapVaultKeyFromEnvelope(envelope, passphrase);
+      if (!testKey) {
+        throw new Error('Passphrase verification failed');
+      }
+
+      // Store prepared vault
+      const prepared: PreparedVault = { vaultKey, envelope, recoveryCodes };
+      setPreparedVault(prepared);
+
+      // Update progress with codes (triggers UI to show RecoveryCodeDisplay)
+      setProgress({ phase: 'generating', recoveryCodes });
+
+      return prepared;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to prepare vault';
+      setProgress({ phase: 'error', error: errorMessage });
+      throw error;
+    } finally {
+      setIsEnabling(false);
+    }
+  }, []);
+
+  /**
+   * Phase 2: Execute encryption and sync (irreversible)
+   */
+  const executeVaultEnable = useCallback(async (prepared: PreparedVault): Promise<void> => {
+    setIsEnabling(true);
+    setProgress({ phase: 'encrypting' });
+
     let encryptedRecords: StoredEncryptedRecord[] = [];
 
     try {
@@ -75,22 +129,11 @@ export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boo
       // This ensures a clean slate for the new vault and prevents decryption errors.
       clearEnvelope();
       clearAllEncryptedStorage();
-      
-      // Phase 1: Generate vault key and create envelope (with recovery codes)
-      vaultKey = await crypto.generateVaultKey();
-      const { envelope, recoveryCodes } = await crypto.createKeyEnvelope(passphrase, vaultKey, true);
 
-      // Verify passphrase works
-      const testKey = await crypto.unwrapVaultKeyFromEnvelope(envelope, passphrase);
-      if (!testKey) {
-        throw new Error('Passphrase verification failed');
-      }
-
-      // Store recovery codes in progress for UI to display
-      setProgress({ phase: 'generating', recoveryCodes });
+      const { vaultKey, envelope } = prepared;
 
       // Phase 2: Encrypt all local data
-      setProgress((prev) => ({ ...prev, phase: 'encrypting' }));
+      setProgress({ phase: 'encrypting' });
       
       // Read bookmarks directly from storage
       const bookmarks = getBookmarks();
@@ -268,9 +311,12 @@ export function useVaultEnable(options?: { deletePlaintextCloudAfterEnable?: boo
     }
   }, [setEnvelope, setUnlocked, clearEnvelope, deletePlaintextCloudAfterEnable]);
 
-  return { 
-    enableVault, 
-    isEnabling, 
+  return {
+    prepareVault,
+    executeVaultEnable,
+    preparedVault,
+    resetPreparedVault,
+    isEnabling,
     progress,
     resetProgress,
     getDataCounts,

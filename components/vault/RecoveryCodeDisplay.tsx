@@ -9,9 +9,14 @@ import { toast } from 'sonner';
 interface RecoveryCodeDisplayProps {
   codes: string[];
   onConfirmed: () => void;
+  onCancel?: () => void;
 }
 
-export function RecoveryCodeDisplay({ codes, onConfirmed }: RecoveryCodeDisplayProps) {
+export function RecoveryCodeDisplay({
+  codes,
+  onConfirmed,
+  onCancel
+}: RecoveryCodeDisplayProps) {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -78,25 +83,33 @@ export function RecoveryCodeDisplay({ codes, onConfirmed }: RecoveryCodeDisplayP
 
   return (
     <div className="space-y-6">
-      <Card className="p-6 bg-red-50 border-red-200">
-        <h3 className="font-semibold text-red-900 mb-2">⚠️ Save Your Recovery Codes</h3>
-        <p className="text-sm text-red-800">
+      <Card className="p-6 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+        <h3 className="font-semibold text-red-900 dark:text-red-200 mb-2">⚠️ Save Your Recovery Codes</h3>
+        <p className="text-sm text-red-800 dark:text-red-300">
           These codes allow you to regain access to your vault if you forget your passphrase. Each code can be used once.
           <br />
           <strong>You will not see these codes again.</strong> Store them securely (safe, password manager, or print).
         </p>
       </Card>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {codes.map((code, index) => (
-          <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <span className="font-mono font-semibold text-gray-900">{code}</span>
+          <div
+            key={index}
+            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-700"
+          >
+            <span className="font-mono text-sm font-semibold text-gray-900 dark:text-slate-100">
+              {code}
+            </span>
             <button
               onClick={() => copyCode(code, index)}
-              className="p-2 hover:bg-gray-100 rounded transition-colors"
+              className="p-2 hover:bg-gray-200 dark:hover:bg-slate-700 rounded transition-colors"
               title="Copy code"
             >
-              <Copy size={18} className={copiedIndex === index ? 'text-green-600' : 'text-gray-600'} />
+              <Copy
+                size={16}
+                className={copiedIndex === index ? 'text-green-600' : 'text-gray-600 dark:text-slate-400'}
+              />
             </button>
           </div>
         ))}
@@ -129,24 +142,31 @@ export function RecoveryCodeDisplay({ codes, onConfirmed }: RecoveryCodeDisplayP
           onChange={(e) => setConfirmed(e.target.checked)}
           className="mt-1 w-4 h-4 cursor-pointer"
         />
-        <label htmlFor="confirmed" className="text-sm text-gray-700 cursor-pointer flex-1">
+        <label htmlFor="confirmed" className="text-sm text-gray-700 dark:text-slate-300 cursor-pointer flex-1">
           I have securely saved my recovery codes and understand they are as important as my passphrase.
         </label>
       </div>
 
-      <Button
-        onClick={() => {
-          if (!confirmed) {
-            toast.error('Please confirm you have saved your recovery codes');
-            return;
-          }
-          onConfirmed();
-        }}
-        disabled={!confirmed}
-        className="w-full"
-      >
-        Continue
-      </Button>
+      <div className="flex gap-3">
+        {onCancel && (
+          <Button onClick={onCancel} variant="secondary" className="flex-1">
+            Cancel
+          </Button>
+        )}
+        <Button
+          onClick={() => {
+            if (!confirmed) {
+              toast.error('Please confirm you have saved your recovery codes');
+              return;
+            }
+            onConfirmed();
+          }}
+          disabled={!confirmed}
+          className="flex-1"
+        >
+          Continue & Enable Vault
+        </Button>
+      </div>
     </div>
   );
 }
