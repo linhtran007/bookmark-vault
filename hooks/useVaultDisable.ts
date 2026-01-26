@@ -28,6 +28,7 @@ import { useState, useCallback } from 'react';
 import { useVaultStore } from '@/stores/vault-store';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
 import * as crypto from '@/lib/crypto';
+import { clearAllVaultData } from '@/lib/auth-cleanup';
 import {
   loadAllEncryptedRecords,
   loadAndDecryptAllBookmarks,

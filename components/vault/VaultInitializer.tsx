@@ -14,6 +14,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth, useUser } from '@clerk/nextjs';
 import { useVaultStore, fetchEnvelopeFromServer } from '@/stores/vault-store';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
+import { clearAllVaultData } from '@/lib/auth-cleanup';
 
 export function VaultInitializer({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
@@ -35,6 +36,9 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
 
     // Detect sign-out: was signed in, now not signed in
     if (wasSignedIn.current === true && !isSignedIn) {
+      // Clear all vault data from storage
+      clearAllVaultData();
+      // Then clear session state in store
       clearSession();
       fetchAttempted.current = null;
     } 

@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useAuth } from "@clerk/nextjs";
 import { Modal, Input, Button } from '@/components/ui';
 import { useVaultDisable, type VaultDisableProgress } from '@/hooks/useVaultDisable';
-import { 
-  Shield, 
-  Key, 
-  Cloud, 
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
+import { clearAllVaultData } from '@/lib/auth-cleanup';
+import {
+  Shield,
+  Key,
+  Cloud,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
   Trash2,
   Download,
 } from 'lucide-react';
@@ -24,8 +26,9 @@ export function DisableVaultDialog({ isOpen, onClose, onComplete }: DisableVault
   const [passphrase, setPassphrase] = useState('');
   const [passphraseError, setPassphraseError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
-  
+
   const { disableVault, isDisabling, progress } = useVaultDisable();
+  const { signOut } = useAuth();
 
   // Reset state when modal closes
   useEffect(() => {
@@ -78,8 +81,18 @@ export function DisableVaultDialog({ isOpen, onClose, onComplete }: DisableVault
 
   // Show completion message
   if (progress?.phase === 'complete') {
+    const handleDone = async () => {
+      onClose();
+      onComplete();
+      // Small delay to ensure UI updates, then sign out and clear data
+      setTimeout(async () => {
+        clearAllVaultData();
+        await signOut({ redirectUrl: '/' });
+      }, 500);
+    };
+
     return (
-      <Modal isOpen={isOpen} onClose={onClose} title="Switched to Plaintext">
+      <Modal isOpen={isOpen} onClose={() => {}} title="Switched to Plaintext">
         <div className="space-y-4 py-4">
           <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 text-center">
             <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500 mb-3" />
@@ -90,7 +103,7 @@ export function DisableVaultDialog({ isOpen, onClose, onComplete }: DisableVault
               Your data has been decrypted and is now syncing as plaintext.
             </p>
           </div>
-          <Button onClick={onClose} className="w-full">
+          <Button onClick={handleDone} className="w-full">
             Done
           </Button>
         </div>
