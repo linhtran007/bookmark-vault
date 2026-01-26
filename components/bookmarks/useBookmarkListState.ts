@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useBookmarks } from "@/hooks/useBookmarks";
-import { filterByTag, getUniqueTags, sortBookmarks } from "@/lib/bookmarks";
+import { getUniqueTags, sortBookmarks } from "@/lib/bookmarks";
 import { PERSONAL_SPACE_ID } from "@/lib/spacesStorage";
 import { Bookmark } from "@/lib/types";
 import { useUiStore } from "@/stores/useUiStore";
@@ -53,8 +53,17 @@ export function useBookmarkListState() {
   );
 
   const filteredBookmarks = useMemo(() => {
-    const tagged = filterByTag(bookmarksInScope, selectedTag);
-    return sortBookmarks(tagged, sortKey);
+    // Single-pass filter: apply all conditions at once
+    const filtered = bookmarksInScope.filter((bookmark) => {
+      // Check tag filter
+      if (selectedTag && selectedTag !== "all" && !bookmark.tags.includes(selectedTag)) {
+        return false;
+      }
+      return true;
+    });
+
+    // Sort once after filtering
+    return sortBookmarks(filtered, sortKey);
   }, [bookmarksInScope, selectedTag, sortKey]);
 
   const handleDeleteRequest = useCallback((bookmark: Bookmark) => {

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import BookmarkCard from "@/components/bookmarks/BookmarkCard";
 import BookmarkListDialogs from "@/components/bookmarks/BookmarkListDialogs";
 import BookmarkListView from "@/components/bookmarks/BookmarkListView";
@@ -70,8 +70,9 @@ export default function BookmarkList({
     }
   };
 
-  // Store action for tag click
+  // Store action for tag click - memoize to prevent unnecessary re-renders
   const setSelectedTag = useUiStore((s) => s.setSelectedTag);
+  const memoizedSetSelectedTag = useCallback(setSelectedTag, [setSelectedTag]);
 
   const cards = useMemo(
     () =>
@@ -81,7 +82,7 @@ export default function BookmarkList({
             bookmark={bookmark}
             onDelete={handleDeleteRequest}
             onEdit={handleEditRequest}
-            onTagClick={(tag) => setSelectedTag(tag)}
+            onTagClick={memoizedSetSelectedTag}
             isPendingAdd={pendingAdds.has(bookmark.id)}
             isPendingDelete={pendingDeletes.has(bookmark.id)}
             isSelected={isSelected(bookmark.id)}
@@ -100,7 +101,7 @@ export default function BookmarkList({
       toggle,
       fetchPreview,
       refreshPreview,
-      setSelectedTag,
+      memoizedSetSelectedTag,
     ]
   );
 

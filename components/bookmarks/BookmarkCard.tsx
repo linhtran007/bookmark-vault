@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import Card from "@/components/ui/Card";
 import BookmarkTags from "@/components/bookmarks/BookmarkTags";
 import DropdownMenu, { DropdownMenuItem } from "@/components/ui/DropdownMenu";
@@ -68,7 +68,7 @@ function PreviewError() {
   );
 }
 
-export default function BookmarkCard({
+function BookmarkCardComponent({
   bookmark,
   onDelete,
   onEdit,
@@ -411,3 +411,24 @@ export default function BookmarkCard({
     </Card>
   );
 }
+
+// Custom comparison function: only re-render if critical data changed
+const BookmarkCard = memo(BookmarkCardComponent, (prevProps, nextProps) => {
+  // Re-render if bookmark data changed (id, updatedAt, preview image)
+  if (prevProps.bookmark.id !== nextProps.bookmark.id) return false;
+  if (prevProps.bookmark.updatedAt !== nextProps.bookmark.updatedAt) return false;
+  if (prevProps.bookmark.preview?.ogImageUrl !== nextProps.bookmark.preview?.ogImageUrl) return false;
+
+  // Re-render if expanded state changed (for popover)
+  if (prevProps.isSelected !== nextProps.isSelected) return false;
+  if (prevProps.isPendingAdd !== nextProps.isPendingAdd) return false;
+  if (prevProps.isPendingDelete !== nextProps.isPendingDelete) return false;
+
+  // Ignore callback prop changes (they're stable from parent)
+  // Ignore computed props like isPendingAdd/isPendingDelete when they haven't changed
+
+  // Skip re-render (props are equal)
+  return true;
+});
+
+export default BookmarkCard;
