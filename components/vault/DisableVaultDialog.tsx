@@ -5,6 +5,9 @@ import { useAuth } from "@clerk/nextjs";
 import { Modal, Input, Button } from '@/components/ui';
 import { useVaultDisable, type VaultDisableProgress } from '@/hooks/useVaultDisable';
 import { clearAllVaultData } from '@/lib/auth-cleanup';
+import { useResetBookmarksStateSafe } from '@/hooks/useBookmarks';
+import { useUiStore } from '@/stores/useUiStore';
+import { toast } from 'sonner';
 import {
   Shield,
   Key,
@@ -29,6 +32,8 @@ export function DisableVaultDialog({ isOpen, onClose, onComplete }: DisableVault
 
   const { disableVault, isDisabling, progress } = useVaultDisable();
   const { signOut } = useAuth();
+  const resetBookmarks = useResetBookmarksStateSafe();
+  const resetUiState = useUiStore((state) => state.resetAllState);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -84,11 +89,22 @@ export function DisableVaultDialog({ isOpen, onClose, onComplete }: DisableVault
     const handleDone = async () => {
       onClose();
       onComplete();
-      // Small delay to ensure UI updates, then sign out and clear data
-      setTimeout(async () => {
-        clearAllVaultData();
-        await signOut({ redirectUrl: '/' });
-      }, 500);
+
+      // 1. Clear storage and caches
+      clearAllVaultData();
+
+      // 2. Reset React state (triggers immediate re-render to empty UI)
+      resetBookmarks?.();
+      resetUiState();
+
+      // 3. Show toast to user
+      toast.success('Vault cleared. Signing out...');
+
+      // 4. Give React time to re-render before redirect
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 5. Then sign out and redirect
+      await signOut({ redirectUrl: '/sign-in' });
     };
 
     return (

@@ -46,6 +46,9 @@ interface UiActions {
 
   // Edit mode helpers
   openEditForm: (bookmark: Bookmark) => void;
+
+  // Reset all UI state (used on logout)
+  resetAllState: () => void;
 }
 
 type UiStore = UiState & UiActions;
@@ -99,4 +102,16 @@ export const useUiStore = create<UiStore>((set) => ({
 
   // Edit mode helpers
   openEditForm: (bookmark) => set({ isFormOpen: true, editingBookmark: bookmark }),
+
+  // Reset all UI state (used on logout)
+  resetAllState: () => set({
+    selectedSpaceId: 'all',
+    searchQuery: '',
+    selectedTag: 'all',
+    sortKey: 'newest',
+    isFormOpen: false,
+    isImportExportOpen: false,
+    isSpacesOpen: false,
+    editingBookmark: null,
+  }),
 }));

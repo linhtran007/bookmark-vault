@@ -56,7 +56,8 @@ type Action =
   | { type: "IMPORT_BOOKMARKS_SUCCESS"; bookmarks: Bookmark[] }
   | { type: "IMPORT_BOOKMARKS_ERROR"; error: string }
   | { type: "UPDATE_PREVIEW_SUCCESS"; id: string; preview: NonNullable<Bookmark['preview']> }
-  | { type: "CLEAR_ERROR" };
+  | { type: "CLEAR_ERROR" }
+  | { type: "RESET_ALL_DATA" };
 
 interface BookmarksState {
   bookmarks: Bookmark[];
@@ -67,6 +68,7 @@ interface BookmarksState {
 
 interface BookmarksContextValue {
   state: BookmarksState;
+  dispatch: React.Dispatch<Action>;
   isInitialLoading: boolean;
   simulateError: boolean;
   setSimulateError: (value: boolean) => void;
@@ -243,6 +245,8 @@ function reducer(state: BookmarksState, action: Action): BookmarksState {
         ...state,
         error: null,
       };
+    case "RESET_ALL_DATA":
+      return initialState;
     default:
       return state;
   }
@@ -692,6 +696,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       state,
+      dispatch,
       isInitialLoading,
       simulateError,
       setSimulateError,
@@ -707,6 +712,7 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      dispatch,
       isInitialLoading,
       simulateError,
       addBookmark,
@@ -765,4 +771,37 @@ export function useBookmarks(searchTerm: string = "") {
     fetchPreview: context.fetchPreview,
     refreshPreview: context.refreshPreview,
   };
+}
+
+/**
+ * Hook to reset all bookmarks state to initial values.
+ * Used during logout to immediately clear the UI.
+ * Triggers immediate re-render with empty bookmarks array.
+ */
+export function useResetBookmarksState(): () => void {
+  const context = useContext(BookmarksContext);
+  if (!context) {
+    throw new Error("useResetBookmarksState must be used within BookmarksProvider");
+  }
+
+  return useCallback(() => {
+    context.dispatch({ type: "RESET_ALL_DATA" });
+  }, [context]);
+}
+
+/**
+ * Safe version of useResetBookmarksState that returns null if BookmarksProvider is not in context.
+ * Used in components that may be rendered outside BookmarksProvider (like AuthHeader on non-home pages).
+ */
+export function useResetBookmarksStateSafe(): (() => void) | null {
+  const context = useContext(BookmarksContext);
+
+  // Return null if context doesn't exist - this is OK for shared components
+  if (!context) {
+    return null;
+  }
+
+  return useCallback(() => {
+    context.dispatch({ type: "RESET_ALL_DATA" });
+  }, [context]);
 }

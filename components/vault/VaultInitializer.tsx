@@ -15,6 +15,7 @@ import { useAuth, useUser } from '@clerk/nextjs';
 import { useVaultStore, fetchEnvelopeFromServer } from '@/stores/vault-store';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
 import { clearAllVaultData } from '@/lib/auth-cleanup';
+import { useUiStore } from '@/stores/useUiStore';
 
 export function VaultInitializer({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
@@ -23,10 +24,11 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
   const clearSession = useVaultStore((s) => s.clearSession);
   const currentUserId = useVaultStore((s) => s.currentUserId);
   const { syncMode } = useSyncSettingsStore();
-  
+  const resetUiState = useUiStore((state) => state.resetAllState);
+
   // Track previous sign-in state to detect sign-out
   const wasSignedIn = useRef<boolean | null>(null);
-  
+
   const fetchAttempted = useRef<string | null>(null);
 
   useEffect(() => {
@@ -36,10 +38,12 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
 
     // Detect sign-out: was signed in, now not signed in
     if (wasSignedIn.current === true && !isSignedIn) {
-      // Clear all vault data from storage
+      // 1. Clear all vault data from storage
       clearAllVaultData();
-      // Then clear session state in store
+      // 2. Clear session state in store
       clearSession();
+      // 3. Reset UI state (the BookmarksProvider reset will happen in AuthHeader/DisableVaultDialog)
+      resetUiState();
       fetchAttempted.current = null;
     } 
     // Initialize with current user (or null if not signed in)
@@ -63,7 +67,7 @@ export function VaultInitializer({ children }: { children: React.ReactNode }) {
 
     // Update ref for next render
     wasSignedIn.current = isSignedIn;
-  }, [isLoaded, isSignedIn, user, initialize, clearSession, currentUserId, syncMode]);
+  }, [isLoaded, isSignedIn, user, initialize, clearSession, currentUserId, syncMode, resetUiState]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !user) return;

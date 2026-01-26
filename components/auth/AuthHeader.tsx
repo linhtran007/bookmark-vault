@@ -3,18 +3,31 @@
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { clearAllVaultData } from "@/lib/auth-cleanup";
+import { useUiStore } from "@/stores/useUiStore";
+import { useResetBookmarksStateSafe } from "@/hooks/useBookmarks";
 
 export function AuthHeader() {
   const { isSignedIn, isLoaded, signOut } = useAuth();
+  const resetBookmarks = useResetBookmarksStateSafe();
+  const resetUiState = useUiStore((state) => state.resetAllState);
 
   if (!isLoaded) {
     return <div className="w-24 h-8 bg-gray-200 dark:bg-gray-700 animate-pulse rounded" />;
   }
 
   const handleSignOut = async () => {
-    // Clear all vault data synchronously BEFORE redirect
+    // 1. Clear all vault data from storage synchronously
     clearAllVaultData();
-    // Then sign out and redirect
+
+    // 2. Reset React state (triggers immediate re-render to empty UI)
+    // This will work if BookmarksProvider is in the DOM tree
+    resetBookmarks?.();
+    resetUiState();
+
+    // 3. Give React time to re-render before redirect
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 4. Then sign out and redirect
     await signOut({ redirectUrl: '/' });
   };
 
