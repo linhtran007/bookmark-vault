@@ -397,17 +397,7 @@ export default function BookmarkCard({
                 
                 {/* Popover content */}
                 <div className="relative bg-white dark:bg-slate-800 rounded-xl border border-zinc-200 dark:border-slate-700 shadow-lg p-4 max-h-48 overflow-y-auto">
-                  <button
-                    type="button"
-                    onClick={() => setShowDescriptionPopover(false)}
-                    className="absolute top-2 right-2 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-slate-700 transition-colors"
-                    aria-label="Close"
-                  >
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap pr-6">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
                     {bookmark.description}
                   </p>
                 </div>
