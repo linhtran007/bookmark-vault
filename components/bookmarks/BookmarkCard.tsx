@@ -396,7 +396,7 @@ export default function BookmarkCard({
                 />
                 
                 {/* Popover content */}
-                <div className="relative bg-white dark:bg-slate-800 rounded-xl border border-zinc-200 dark:border-slate-700 shadow-lg p-4 max-h-48 overflow-y-auto">
+                <div className="relative bg-white dark:bg-slate-800 rounded-xl border border-zinc-200 dark:border-slate-700 shadow-lg p-4">
                   <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
                     {bookmark.description}
                   </p>
