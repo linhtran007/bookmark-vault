@@ -8,7 +8,7 @@ jest.mock("uuid", () => ({
 }));
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Home from '@/app/page';
+import AppHome from '@/app/app/page';
 
 // Mock all dependencies
 jest.mock('@/hooks/useBookmarks', () => ({
@@ -46,7 +46,7 @@ describe('Home Page Integration', () => {
   });
 
   it('renders the main page structure', () => {
-    render(<Home />);
+    render(<AppHome />);
 
     expect(screen.getByText('Your personal vault')).toBeInTheDocument();
     expect(screen.getByText('Manage your bookmarks')).toBeInTheDocument();
@@ -54,7 +54,7 @@ describe('Home Page Integration', () => {
   });
 
   it('opens form modal when Add bookmark is clicked', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const addButton = screen.getByRole('button', { name: 'Add bookmark' });
     await userEvent.click(addButton);
@@ -66,7 +66,7 @@ describe('Home Page Integration', () => {
   });
 
   it('opens import/export modal when import button is clicked', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const importButton = screen.getByRole('button', { name: /import or export/i });
     await userEvent.click(importButton);
@@ -78,13 +78,13 @@ describe('Home Page Integration', () => {
   });
 
   it('renders keyboard shortcuts help button', () => {
-    render(<Home />);
+    render(<AppHome />);
 
     expect(screen.getByLabelText('Show keyboard shortcuts')).toBeInTheDocument();
   });
 
   it('toggles keyboard shortcuts help popover', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const helpButton = screen.getByLabelText('Show keyboard shortcuts');
     await userEvent.click(helpButton);
@@ -103,13 +103,13 @@ describe('Home Page Integration', () => {
   });
 
   it('displays empty state when no bookmarks exist', () => {
-    render(<Home />);
+    render(<AppHome />);
 
     expect(screen.getByText('No bookmarks yet')).toBeInTheDocument();
   });
 
   it('empty state has Add Bookmark CTA button', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const emptyStateButton = screen.getByRole('button', { name: /Add your first bookmark/i });
     expect(emptyStateButton).toBeInTheDocument();
@@ -125,13 +125,13 @@ describe('Home Page Integration', () => {
   it('runs migration on mount', async () => {
     const { runOnboardingMigration } = await import('@/lib/migration');
 
-    render(<Home />);
+    render(<AppHome />);
 
     expect(runOnboardingMigration).toHaveBeenCalledTimes(1);
   });
 
   it('keyboard shortcuts help shows all shortcuts', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const helpButton = screen.getByLabelText('Show keyboard shortcuts');
     await userEvent.click(helpButton);
@@ -145,7 +145,7 @@ describe('Home Page Integration', () => {
   });
 
   it('keyboard shortcuts help shows key combinations', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const helpButton = screen.getByLabelText('Show keyboard shortcuts');
     await userEvent.click(helpButton);
@@ -158,7 +158,7 @@ describe('Home Page Integration', () => {
   });
 
   it('closes keyboard shortcuts help on backdrop click', async () => {
-    render(<Home />);
+    render(<AppHome />);
 
     const helpButton = screen.getByLabelText('Show keyboard shortcuts');
     await userEvent.click(helpButton);

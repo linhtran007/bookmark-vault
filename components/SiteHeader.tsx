@@ -10,6 +10,7 @@ import { useSyncSettingsStore } from "@/stores/sync-settings-store";
 export function SiteHeader() {
   const pathname = usePathname();
   const isSettingsPage = pathname === "/settings";
+  const isAppRoute = pathname?.startsWith("/app");
   const { vaultEnvelope, isUnlocked, lock } = useVaultStore();
   const { syncMode } = useSyncSettingsStore();
 
@@ -20,12 +21,12 @@ export function SiteHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-zinc-200 dark:bg-slate-900/80 dark:border-slate-800">
-      <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8 2xl:max-w-7xl">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+      <div className="w-full px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-2.5 w-2.5 rounded-full bg-rose-500" aria-hidden="true" />
-            <Link href="/" className="hover:opacity-80 transition-opacity">
+            <Link href={isAppRoute ? "/app" : "/"} className="hover:opacity-80 transition-opacity">
               <h1 className="text-2xl font-semibold tracking-tight">Bookmark Vault</h1>
             </Link>
           </div>

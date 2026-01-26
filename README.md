@@ -1,47 +1,36 @@
 # Bookmark Vault
 
-A fast, offline-first bookmark manager built with Next.js App Router.
+Bookmark Vault is a private, distraction-free place to save and organize links you actually want to revisit.
 
-## Features
-- Add / edit / delete bookmarks with validation (Zod)
-- Search + Tag + Sort filters
-- Spaces (e.g. Personal/Work) + pinned views (saved filters)
-- Bulk actions (select + delete)
-- Link previews (favicon, title, description, OG image) + refresh
-- Import/Export JSON
-- Dark / Light / System theme
+## What it helps you do
+- Capture links fast with titles, notes, and tags
+- Group bookmarks into spaces like Personal, Work, or Research
+- Find anything with search, filters, and sorting
+- Save favorite views so you can return to the same context
+- Preview pages at a glance with site info and thumbnails
+- Clean up in batches with multi-select actions
+- Bring links in or out with simple import and export
+- Keep your collection private with optional sign-in and vault lock
 
-## Tech Stack
-- Next.js (App Router) + React 19
-- TypeScript (strict)
-- TailwindCSS
-- Zod
-- localStorage persistence (client-side)
+## How people use it
+- Build a research library for articles, papers, and videos
+- Keep a project hub with the docs and references you need daily
+- Organize personal reading lists without losing track
+- Share exports with teammates or move collections between tools
 
-## Getting Started
+## Homepage example (copy only)
+Headline: Your bookmarks, finally under control
+Subheadline: Save, tag, and organize links into focused spaces so you can find the right resource in seconds.
+Primary CTA: Add your first bookmark
+Secondary CTA: Import from another tool
+Highlights:
+- Spaces keep work and personal links separate
+- Search and filters surface what you need fast
+- Notes and tags add context for later
+- Optional vault lock keeps everything private
 
-```bash
-npm install
-npm run dev
-```
-
-Open `http://localhost:3000`.
-
-## Scripts
-- `npm run dev` — start dev server
-- `npm run build` — production build
-- `npm run start` — start production server
-- `npm run test` — run Jest tests
-- `npm run lint` — run ESLint
-
-## Data & Storage
-- Bookmarks and UI state persist in the browser using `localStorage`.
-- There is no backend/database in this project.
-
-## Import / Export
-- Export downloads a JSON file of your bookmarks.
-- Import supports merge/replace with duplicate handling.
-
-## Notes
-- Components that touch `window`, `document`, or `localStorage` are client components (`"use client"`).
-- Link previews are fetched via `app/api/link-preview/route.ts`.
+## Getting started (non-technical)
+1. Open the app and click Add bookmark.
+2. Give it a title, URL, and optional notes or tags.
+3. Use Spaces, Search, and Filters to keep everything tidy.
+4. Import links from another tool whenever you are ready.
