@@ -5,6 +5,7 @@ import { query } from '@/lib/db';
 const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
 const API_TIMEOUT = 15000; // 15 seconds
 const MAX_DESCRIPTION_LENGTH = 400; // Leave room for user edits
+const FETCH_TIMEOUT = 8000; // 8 seconds to fetch URL content
 
 async function fetchWithTimeout(url: string, options: RequestInit, timeout: number): Promise<Response> {
   const controller = new AbortController();
@@ -23,7 +24,69 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout: numb
   }
 }
 
-function buildPrompt(url: string, currentDescription?: string, modificationInstructions?: string): string {
+// Fetch and extract relevant content from URL
+async function fetchUrlContent(url: string): Promise<string | null> {
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Bookmark Vault Description Generator)',
+        },
+      },
+      FETCH_TIMEOUT
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const html = await response.text();
+
+    // Extract useful content from HTML
+    const ogDescription = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i)?.[1];
+    const metaDescription = html.match(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i)?.[1];
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
+    const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)?.[1];
+
+    // Get text content (rough extraction)
+    const textContent = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove scripts
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '') // Remove styles
+      .replace(/<[^>]+>/g, ' ') // Remove HTML tags
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim()
+      .substring(0, 500); // Limit to 500 chars
+
+    // Combine extracted content
+    const content = [
+      titleMatch,
+      h1Match,
+      ogDescription,
+      metaDescription,
+      textContent,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    return content || null;
+  } catch (error) {
+    // Silently fail - we'll generate description without content if fetch fails
+    console.error('Failed to fetch URL content:', error);
+    return null;
+  }
+}
+
+function buildPrompt(
+  url: string,
+  currentDescription?: string,
+  modificationInstructions?: string,
+  pageContent?: string | null
+): string {
+  const contentSection = pageContent
+    ? `\nPage content preview:\n${pageContent}\n`
+    : '';
+
   // Case 1: User wants to modify existing description
   if (currentDescription && modificationInstructions) {
     return `You are a helpful assistant that improves bookmark descriptions based on user feedback.
@@ -31,7 +94,7 @@ function buildPrompt(url: string, currentDescription?: string, modificationInstr
 Current description: "${currentDescription}"
 
 User's modification request: "${modificationInstructions}"
-
+${contentSection}
 Requirements:
 - Apply the user's requested changes to the description
 - Keep length at 2-3 sentences (maximum ${MAX_DESCRIPTION_LENGTH} characters)
@@ -47,7 +110,7 @@ Generate the modified description:`;
     return `You are a helpful assistant that generates concise, informative descriptions for bookmarked web pages.
 
 URL: ${url}
-
+${contentSection}
 Previous description: "${currentDescription}"
 
 Requirements:
@@ -66,7 +129,7 @@ Generate new description:`;
   return `You are a helpful assistant that generates concise, informative descriptions for bookmarked web pages.
 
 URL: ${url}
-
+${contentSection}
 Requirements:
 - Generate a description that captures the main purpose/content of the page
 - Length: 2-3 sentences (maximum ${MAX_DESCRIPTION_LENGTH} characters)
@@ -123,10 +186,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid modification instructions' }, { status: 400 });
     }
 
-    // 3. Build prompt (handles 3 cases: initial, regenerate, modify)
-    const prompt = buildPrompt(url, currentDescription, modificationInstructions);
+    // 3. Fetch URL content to provide context (non-blocking, optional)
+    const pageContent = await fetchUrlContent(url);
 
-    // 4. Call Gemini API
+    // 4. Build prompt (handles 3 cases: initial, regenerate, modify)
+    const prompt = buildPrompt(url, currentDescription, modificationInstructions, pageContent);
+
+    // 5. Call Gemini API
     const geminiUrl = `${GEMINI_API_ENDPOINT}?key=${apiToken}`;
     const geminiResponse = await fetchWithTimeout(
       geminiUrl,
@@ -162,7 +228,7 @@ export async function POST(request: Request) {
       API_TIMEOUT
     );
 
-    // 5. Handle Gemini API errors
+    // 6. Handle Gemini API errors
     if (!geminiResponse.ok) {
       const errorData = await geminiResponse.json().catch(() => ({}));
       console.error('Gemini API error:', geminiResponse.status, errorData);
@@ -190,7 +256,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Parse Gemini response
+    // 7. Parse Gemini response
     const geminiData = await geminiResponse.json();
 
     if (!geminiData.candidates?.[0]?.content?.parts?.[0]?.text) {
@@ -203,12 +269,12 @@ export async function POST(request: Request) {
 
     const generatedText = geminiData.candidates[0].content.parts[0].text.trim();
 
-    // 7. Validate and truncate if needed
+    // 8. Validate and truncate if needed
     const description = generatedText.length > MAX_DESCRIPTION_LENGTH
       ? generatedText.substring(0, MAX_DESCRIPTION_LENGTH) + '...'
       : generatedText;
 
-    // 8. Return success
+    // 9. Return success
     return NextResponse.json({
       success: true,
       description,
