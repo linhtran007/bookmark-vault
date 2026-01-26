@@ -6,6 +6,7 @@ type SyncSettingsRow = {
   sync_enabled: boolean;
   sync_mode: string;
   last_sync_at: string | null;
+  gemini_api_token?: string | null;
 };
 
 // GET: Retrieve user's sync settings
@@ -19,8 +20,8 @@ export async function GET() {
 
   try {
     const result = await query<SyncSettingsRow>(
-      `SELECT sync_enabled, sync_mode, last_sync_at 
-       FROM sync_settings 
+      `SELECT sync_enabled, sync_mode, last_sync_at, gemini_api_token
+       FROM sync_settings
        WHERE user_id = $1`,
       [userId]
     );
@@ -31,6 +32,7 @@ export async function GET() {
         syncEnabled: false,
         syncMode: 'off',
         lastSyncAt: null,
+        geminiApiToken: undefined,
       });
     }
 
@@ -39,6 +41,7 @@ export async function GET() {
       syncEnabled: settings.sync_enabled,
       syncMode: settings.sync_mode,
       lastSyncAt: settings.last_sync_at,
+      geminiApiToken: settings.gemini_api_token,
     });
   } catch (error) {
     console.error('Failed to get sync settings:', error);
@@ -60,7 +63,7 @@ export async function PUT(req: Request) {
 
   try {
     const body = await req.json();
-    const { syncEnabled, syncMode } = body;
+    const { syncEnabled, syncMode, geminiApiToken } = body;
 
     // Validate syncMode
     if (!['off', 'plaintext', 'e2e'].includes(syncMode)) {
@@ -72,15 +75,16 @@ export async function PUT(req: Request) {
 
     // Upsert settings
     const result = await query<SyncSettingsRow>(
-      `INSERT INTO sync_settings (user_id, sync_enabled, sync_mode)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (user_id) 
-       DO UPDATE SET 
+      `INSERT INTO sync_settings (user_id, sync_enabled, sync_mode, gemini_api_token)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id)
+       DO UPDATE SET
          sync_enabled = EXCLUDED.sync_enabled,
          sync_mode = EXCLUDED.sync_mode,
+         gemini_api_token = EXCLUDED.gemini_api_token,
          updated_at = NOW()
-       RETURNING sync_enabled, sync_mode, last_sync_at`,
-      [userId, syncEnabled, syncMode]
+       RETURNING sync_enabled, sync_mode, last_sync_at, gemini_api_token`,
+      [userId, syncEnabled, syncMode, geminiApiToken || null]
     );
 
     const settings = result[0];
@@ -89,6 +93,7 @@ export async function PUT(req: Request) {
       syncEnabled: settings.sync_enabled,
       syncMode: settings.sync_mode,
       lastSyncAt: settings.last_sync_at,
+      geminiApiToken: settings.gemini_api_token,
     });
   } catch (error) {
     console.error('Failed to update sync settings:', error);

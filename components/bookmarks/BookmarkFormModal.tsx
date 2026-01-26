@@ -42,6 +42,8 @@ export default function BookmarkFormModal({
     handleChange,
     handleSubmit,
     registerField,
+    generateDescription,
+    isGeneratingDescription,
   } = useBookmarkForm({
     mode,
     initialBookmark,
@@ -97,6 +99,8 @@ export default function BookmarkFormModal({
           registerField={registerField}
           spaceOptions={safeSpaceOptions}
           tagSuggestions={tagSuggestions}
+          onGenerateDescription={generateDescription}
+          isGeneratingDescription={isGeneratingDescription}
         />
         {errorMessage && (
           <p className="text-sm text-red-600" role="alert">{errorMessage}</p>

@@ -3,6 +3,7 @@
 import { SettingsSection } from "@/components/settings/SettingsSection";
 import { SyncModeToggle } from "@/components/settings/SyncModeToggle";
 import { ThemeSettings } from "@/components/settings/ThemeSettings";
+import { ApiSettings } from "@/components/settings/ApiSettings";
 import { useIncomingSync } from "@/hooks/useIncomingSync";
 
 export default function SettingsPage() {
@@ -24,6 +25,13 @@ export default function SettingsPage() {
         description="Customize how Bookmark Vault looks"
       >
         <ThemeSettings />
+      </SettingsSection>
+
+      <SettingsSection
+        title="API Configuration"
+        description="Configure API tokens for AI-powered features"
+      >
+        <ApiSettings />
       </SettingsSection>
 
       <SettingsSection

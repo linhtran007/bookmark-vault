@@ -17,6 +17,7 @@ interface BookmarkFormFieldProps {
   as?: "input" | "textarea";
   type?: string;
   rows?: number;
+  disabled?: boolean;
   inputRef?: React.Ref<HTMLInputElement>;
   registerField?: (fieldName: keyof BookmarkFormState, element: HTMLInputElement | null) => void;
   containerClassName?: string;
@@ -34,6 +35,7 @@ export default function BookmarkFormField({
   as = "input",
   type = "text",
   rows = 3,
+  disabled,
   inputRef,
   registerField,
   containerClassName,
@@ -62,6 +64,7 @@ export default function BookmarkFormField({
         value={value}
         onChange={onChange}
         rows={rows}
+        disabled={disabled}
         placeholder={placeholder}
         ref={handleRef as Ref<HTMLTextAreaElement>}
         containerClassName={containerClassName}

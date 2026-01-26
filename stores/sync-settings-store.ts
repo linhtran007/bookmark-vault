@@ -8,18 +8,19 @@ interface SyncSettingsState extends SyncSettings {
   // State
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   setSyncEnabled: (enabled: boolean) => void;
   setSyncMode: (mode: SyncMode) => void;
   setLastSyncAt: (timestamp: string) => void;
+  setGeminiApiToken: (token: string | undefined) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
+
   // Sync with server
   loadFromServer: () => Promise<void>;
   saveToServer: () => Promise<void>;
-  
+
   // Reset
   reset: () => void;
 }
@@ -28,6 +29,7 @@ const defaultSettings: SyncSettings = {
   syncEnabled: false,
   syncMode: 'off',
   lastSyncAt: undefined,
+  geminiApiToken: undefined,
 };
 
 export const useSyncSettingsStore = create<SyncSettingsState>()(
@@ -45,6 +47,7 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
         syncEnabled: mode !== 'off',
       }),
       setLastSyncAt: (timestamp) => set({ lastSyncAt: timestamp }),
+      setGeminiApiToken: (token) => set({ geminiApiToken: token }),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
 
@@ -66,6 +69,7 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
             syncEnabled: data.syncEnabled,
             syncMode: data.syncMode,
             lastSyncAt: data.lastSyncAt,
+            geminiApiToken: data.geminiApiToken,
             isLoading: false,
           });
         } catch (err) {
@@ -87,6 +91,7 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
             body: JSON.stringify({
               syncEnabled: state.syncEnabled,
               syncMode: state.syncMode,
+              geminiApiToken: state.geminiApiToken,
             }),
           });
           if (!res.ok) {
@@ -111,6 +116,7 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
         syncEnabled: state.syncEnabled,
         syncMode: state.syncMode,
         lastSyncAt: state.lastSyncAt,
+        geminiApiToken: state.geminiApiToken,
       }),
     }
   )
