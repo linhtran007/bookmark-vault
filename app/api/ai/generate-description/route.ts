@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { query } from '@/lib/db';
 
-const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_ENDPOINT = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent';
 const API_TIMEOUT = 15000; // 15 seconds
 const MAX_DESCRIPTION_LENGTH = 400; // Leave room for user edits
 
@@ -175,8 +175,11 @@ export async function POST(request: Request) {
       }
 
       if (geminiResponse.status === 429) {
+        const message = errorData.error?.message?.includes('quota') || errorData.error?.message?.includes('Quota')
+          ? 'Your free tier quota is exhausted. Try again tomorrow or upgrade your Gemini API plan at https://aistudio.google.com'
+          : 'Rate limit exceeded. Please try again in a few moments.';
         return NextResponse.json(
-          { error: 'Rate limit exceeded. Please try again later.' },
+          { error: message },
           { status: 429 }
         );
       }
