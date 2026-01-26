@@ -13,7 +13,8 @@ interface SyncSettingsState extends SyncSettings {
   setSyncEnabled: (enabled: boolean) => void;
   setSyncMode: (mode: SyncMode) => void;
   setLastSyncAt: (timestamp: string) => void;
-  setGeminiApiToken: (token: string | undefined) => void;
+  setGeminiApiKeyIsSet: (isSet: boolean) => void;
+  updateGeminiApiKey: (token: string | null) => Promise<void>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 
@@ -29,7 +30,7 @@ const defaultSettings: SyncSettings = {
   syncEnabled: false,
   syncMode: 'off',
   lastSyncAt: undefined,
-  geminiApiToken: undefined,
+  geminiApiKeyIsSet: false,
 };
 
 export const useSyncSettingsStore = create<SyncSettingsState>()(
@@ -42,14 +43,48 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
 
       // Simple setters
       setSyncEnabled: (enabled) => set({ syncEnabled: enabled }),
-      setSyncMode: (mode) => set({ 
+      setSyncMode: (mode) => set({
         syncMode: mode,
         syncEnabled: mode !== 'off',
       }),
       setLastSyncAt: (timestamp) => set({ lastSyncAt: timestamp }),
-      setGeminiApiToken: (token) => set({ geminiApiToken: token }),
+      setGeminiApiKeyIsSet: (isSet) => set({ geminiApiKeyIsSet: isSet }),
       setLoading: (loading) => set({ isLoading: loading }),
       setError: (error) => set({ error }),
+
+      // Update API key on server without storing locally
+      updateGeminiApiKey: async (token) => {
+        const state = get();
+        set({ isLoading: true, error: null });
+
+        try {
+          const res = await fetch('/api/sync/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              syncEnabled: state.syncEnabled,
+              syncMode: state.syncMode,
+              geminiApiToken: token,
+            }),
+          });
+
+          if (!res.ok) {
+            throw new Error('Failed to update API key');
+          }
+
+          const data = await res.json();
+          set({
+            geminiApiKeyIsSet: data.geminiApiKeyIsSet,
+            isLoading: false
+          });
+        } catch (err) {
+          set({
+            isLoading: false,
+            error: err instanceof Error ? err.message : 'Unknown error'
+          });
+          throw err;
+        }
+      },
 
       // Load settings from server
       loadFromServer: async () => {
@@ -69,13 +104,13 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
             syncEnabled: data.syncEnabled,
             syncMode: data.syncMode,
             lastSyncAt: data.lastSyncAt,
-            geminiApiToken: data.geminiApiToken,
+            geminiApiKeyIsSet: data.geminiApiKeyIsSet,
             isLoading: false,
           });
         } catch (err) {
-          set({ 
-            isLoading: false, 
-            error: err instanceof Error ? err.message : 'Unknown error' 
+          set({
+            isLoading: false,
+            error: err instanceof Error ? err.message : 'Unknown error'
           });
         }
       },
@@ -91,7 +126,6 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
             body: JSON.stringify({
               syncEnabled: state.syncEnabled,
               syncMode: state.syncMode,
-              geminiApiToken: state.geminiApiToken,
             }),
           });
           if (!res.ok) {
@@ -99,9 +133,9 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
           }
           set({ isLoading: false });
         } catch (err) {
-          set({ 
-            isLoading: false, 
-            error: err instanceof Error ? err.message : 'Unknown error' 
+          set({
+            isLoading: false,
+            error: err instanceof Error ? err.message : 'Unknown error'
           });
           throw err;
         }
@@ -116,7 +150,7 @@ export const useSyncSettingsStore = create<SyncSettingsState>()(
         syncEnabled: state.syncEnabled,
         syncMode: state.syncMode,
         lastSyncAt: state.lastSyncAt,
-        geminiApiToken: state.geminiApiToken,
+        geminiApiKeyIsSet: state.geminiApiKeyIsSet,
       }),
     }
   )

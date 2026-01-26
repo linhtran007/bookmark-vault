@@ -98,7 +98,7 @@ export interface SyncSettings {
   syncEnabled: boolean;
   syncMode: SyncMode;
   lastSyncAt?: string;
-  geminiApiToken?: string;
+  geminiApiKeyIsSet?: boolean;
 }
 
 // Plaintext sync record (for non-E2E mode)

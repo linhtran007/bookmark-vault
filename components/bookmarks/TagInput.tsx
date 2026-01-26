@@ -2,8 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import Badge from "@/components/ui/Badge";
-import Input from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
+import { Plus } from "lucide-react";
 import type { BookmarkFormState } from "@/hooks/useBookmarkForm";
 
 function normalizeTag(raw: string): string {
@@ -81,33 +81,66 @@ export default function TagInput({
     onChangeValue(stringifyTags(next));
   };
 
+  const handleAddClick = () => {
+    commitDraft(draft);
+    inputRef.current?.focus();
+  };
+
   return (
     <div className={cn("space-y-1", containerClassName)}>
+      <label
+        htmlFor={id}
+        className="block text-sm font-medium text-slate-700 dark:text-slate-200"
+      >
+        {label}
+      </label>
       <div className="relative">
-        <Input
-          id={id}
-          label={label}
-          name={name}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          error={error}
-          placeholder={tags.length ? "Add tag…" : "Add tags (Enter / comma)"}
-          ref={(el) => {
-            inputRef.current = el;
-            registerField?.(name, el);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              commitDraft(draft);
-              return;
-            }
-            if (e.key === "Backspace" && !draft) {
-              const last = tags[tags.length - 1];
-              if (last) removeTag(last);
-            }
-          }}
-        />
+        <div className="flex gap-2">
+          <input
+            id={id}
+            name={name}
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={tags.length ? "Add tag…" : "Type a tag and press +"}
+            ref={(el) => {
+              inputRef.current = el;
+              registerField?.(name, el);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitDraft(draft);
+                return;
+              }
+              if (e.key === "Backspace" && !draft) {
+                const last = tags[tags.length - 1];
+                if (last) removeTag(last);
+              }
+            }}
+            className={cn(
+              "flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500",
+              "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100",
+              "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+              error && "border-red-500 focus-visible:ring-red-500"
+            )}
+          />
+          <button
+            type="button"
+            onClick={handleAddClick}
+            disabled={!draft.trim()}
+            className={cn(
+              "flex items-center justify-center rounded-lg px-3 py-2 transition-colors",
+              "bg-rose-500 text-white hover:bg-rose-600",
+              "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-rose-500",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+            )}
+            aria-label="Add tag"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
 
         {filteredSuggestions.length > 0 && (
           <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
@@ -118,7 +151,6 @@ export default function TagInput({
                 className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-zinc-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 onClick={() => {
                   commitDraft(s);
-                  // keep focus for fast tagging
                   inputRef.current?.focus();
                 }}
               >
@@ -130,7 +162,7 @@ export default function TagInput({
       </div>
 
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1 pt-1">
           {tags.map((tag) => (
             <button
               key={tag}
@@ -143,6 +175,10 @@ export default function TagInput({
             </button>
           ))}
         </div>
+      )}
+
+      {error && (
+        <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
       )}
     </div>
   );

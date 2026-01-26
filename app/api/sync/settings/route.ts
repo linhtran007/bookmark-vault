@@ -32,7 +32,7 @@ export async function GET() {
         syncEnabled: false,
         syncMode: 'off',
         lastSyncAt: null,
-        geminiApiToken: undefined,
+        geminiApiKeyIsSet: false,
       });
     }
 
@@ -41,7 +41,7 @@ export async function GET() {
       syncEnabled: settings.sync_enabled,
       syncMode: settings.sync_mode,
       lastSyncAt: settings.last_sync_at,
-      geminiApiToken: settings.gemini_api_token,
+      geminiApiKeyIsSet: !!settings.gemini_api_token,
     });
   } catch (error) {
     console.error('Failed to get sync settings:', error);
@@ -93,7 +93,7 @@ export async function PUT(req: Request) {
       syncEnabled: settings.sync_enabled,
       syncMode: settings.sync_mode,
       lastSyncAt: settings.last_sync_at,
-      geminiApiToken: settings.gemini_api_token,
+      geminiApiKeyIsSet: !!settings.gemini_api_token,
     });
   } catch (error) {
     console.error('Failed to update sync settings:', error);

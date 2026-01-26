@@ -5,7 +5,7 @@ import type { BookmarkFormState } from "@/hooks/useBookmarkForm";
 
 interface BookmarkFormFieldProps {
   id: string;
-  label: string;
+  label?: string;
   name: keyof BookmarkFormState;
   value: string;
   onChange: (
@@ -21,6 +21,7 @@ interface BookmarkFormFieldProps {
   inputRef?: React.Ref<HTMLInputElement>;
   registerField?: (fieldName: keyof BookmarkFormState, element: HTMLInputElement | null) => void;
   containerClassName?: string;
+  autoResize?: boolean;
 }
 
 export default function BookmarkFormField({
@@ -39,6 +40,7 @@ export default function BookmarkFormField({
   inputRef,
   registerField,
   containerClassName,
+  autoResize,
 }: BookmarkFormFieldProps) {
   const handleRef = (element: HTMLInputElement | HTMLTextAreaElement | null) => {
     // Register with useBookmarkForm for focus management
@@ -68,6 +70,7 @@ export default function BookmarkFormField({
         placeholder={placeholder}
         ref={handleRef as Ref<HTMLTextAreaElement>}
         containerClassName={containerClassName}
+        autoResize={autoResize}
       />
     );
   }

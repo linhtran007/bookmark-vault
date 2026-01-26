@@ -206,7 +206,6 @@ export default function BookmarkFormFields({
         {/* Action 3: Manual Edit - always available via textarea */}
         <BookmarkFormField
           id="description"
-          label="Description"
           name="description"
           as="textarea"
           value={form.description}
@@ -215,7 +214,8 @@ export default function BookmarkFormFields({
           placeholder={isGeneratingDescription ? "Generating description..." : "Optional description (or use AI to generate)"}
           registerField={registerField}
           disabled={isGeneratingDescription}
-          rows={3}
+          rows={2}
+          autoResize
         />
       </div>
 

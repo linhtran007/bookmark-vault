@@ -250,10 +250,12 @@ export function useBookmarkForm(options?: {
   };
 
   // Check if form is currently valid (no errors, required fields filled)
+  // Note: Check for truthy error values, not just keys (keys can exist with undefined values)
+  const hasAnyError = Object.values(errors).some(Boolean);
   const isValid = Boolean(
     form.title.trim() &&
     form.url.trim() &&
-    Object.keys(errors).length === 0
+    !hasAnyError
   );
 
   return {

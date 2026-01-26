@@ -1,53 +1,72 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Key, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
+import { Key, CheckCircle2, Edit2 } from 'lucide-react';
 import { useSyncSettingsStore } from '@/stores/sync-settings-store';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { toast } from 'sonner';
 
-export function ApiSettings() {
-  const { geminiApiToken, setGeminiApiToken, saveToServer } = useSyncSettingsStore();
-  const [showToken, setShowToken] = useState(false);
-  const [localToken, setLocalToken] = useState(geminiApiToken || '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
+type UIMode = 'not-configured' | 'configured' | 'updating';
 
-  useEffect(() => {
-    setHasChanges(localToken !== (geminiApiToken || ''));
-  }, [localToken, geminiApiToken]);
+export function ApiSettings() {
+  const { geminiApiKeyIsSet, updateGeminiApiKey, isLoading } = useSyncSettingsStore();
+
+  // Determine initial UI mode
+  const [mode, setMode] = useState<UIMode>(geminiApiKeyIsSet ? 'configured' : 'not-configured');
+  const [inputValue, setInputValue] = useState('');
 
   const handleSave = async () => {
-    setIsSaving(true);
+    if (!inputValue.trim()) {
+      toast.error('Please enter an API key');
+      return;
+    }
+
     try {
-      setGeminiApiToken(localToken || undefined);
-      await saveToServer();
-      toast.success('API token saved successfully');
+      await updateGeminiApiKey(inputValue.trim());
+      toast.success('API key saved successfully');
+      setInputValue(''); // Clear input
+      setMode('configured'); // Switch to configured state
     } catch (error) {
-      toast.error('Failed to save API token');
+      toast.error('Failed to save API key');
       console.error('Save error:', error);
-    } finally {
-      setIsSaving(false);
     }
   };
 
-  const handleClear = () => {
-    setLocalToken('');
-    setHasChanges(true);
+  const handleUpdate = () => {
+    setMode('updating');
+    setInputValue('');
+  };
+
+  const handleCancel = () => {
+    setInputValue('');
+    setMode('configured');
+  };
+
+  const handleClear = async () => {
+    try {
+      await updateGeminiApiKey(null);
+      toast.success('API key removed');
+      setInputValue('');
+      setMode('not-configured');
+    } catch (error) {
+      toast.error('Failed to remove API key');
+      console.error('Clear error:', error);
+    }
   };
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-2">
           <Key className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          <label htmlFor="gemini-token" className="font-medium text-slate-900 dark:text-slate-100">
-            Gemini API Token
+          <label className="font-medium text-slate-900 dark:text-slate-100">
+            Gemini API Key
           </label>
         </div>
         <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-          Enter your Google AI Studio API key to enable AI-powered description generation.{' '}
+          Configure your Google AI Studio API key to enable AI-powered description generation.{' '}
           <a
             href="https://aistudio.google.com/app/apikey"
             target="_blank"
@@ -59,65 +78,78 @@ export function ApiSettings() {
         </p>
       </div>
 
-      <div className="relative">
-        <Input
-          id="gemini-token"
-          type={showToken ? 'text' : 'password'}
-          value={localToken}
-          onChange={(e) => setLocalToken(e.target.value)}
-          placeholder="Enter your Gemini API token"
-          className="pr-20 font-mono text-sm"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {localToken && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors"
-              title="Clear token"
-            >
-              <AlertCircle className="w-4 h-4" />
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowToken(!showToken)}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded transition-colors"
-            title={showToken ? 'Hide token' : 'Show token'}
+      {/* State 1: Not Configured */}
+      {mode === 'not-configured' && (
+        <>
+          <Input
+            type="password"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Paste your Gemini API key"
+            className="font-mono text-sm"
+          />
+          <Button
+            onClick={handleSave}
+            disabled={isLoading || !inputValue.trim()}
+            variant="primary"
           >
-            {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
+            {isLoading ? 'Saving...' : 'Save API Key'}
+          </Button>
+        </>
+      )}
 
-      {geminiApiToken && !hasChanges && (
-        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>Token configured</span>
+      {/* State 2: Configured */}
+      {mode === 'configured' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-800 dark:text-green-300">
+              API Key Configured
+            </span>
+          </div>
+          <div className="flex gap-3">
+            <Button onClick={handleUpdate} variant="secondary">
+              <Edit2 className="w-4 h-4" />
+              Update Key
+            </Button>
+            <Button onClick={handleClear} variant="ghost" disabled={isLoading}>
+              Remove Key
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="flex gap-3">
-        <Button
-          onClick={handleSave}
-          disabled={isSaving || !hasChanges}
-          variant="primary"
-        >
-          {isSaving ? 'Saving...' : 'Save Token'}
-        </Button>
-        {hasChanges && (
-          <Button
-            onClick={() => setLocalToken(geminiApiToken || '')}
-            variant="secondary"
-          >
-            Cancel
-          </Button>
-        )}
-      </div>
+      {/* State 3: Updating */}
+      {mode === 'updating' && (
+        <>
+          <Input
+            type="password"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Enter new API key"
+            className="font-mono text-sm"
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <Button
+              onClick={handleSave}
+              disabled={isLoading || !inputValue.trim()}
+              variant="primary"
+            >
+              {isLoading ? 'Saving...' : 'Save'}
+            </Button>
+            <Button onClick={handleCancel} variant="secondary" disabled={isLoading}>
+              Cancel
+            </Button>
+          </div>
+        </>
+      )}
 
-      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-        <p className="text-sm text-amber-800 dark:text-amber-300">
-          <strong>Security Note:</strong> Your API token is stored encrypted and only used server-side. Never share your token with anyone.
+      {/* Security Note - Now ACCURATE */}
+      <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-3">
+        <p className="text-sm text-green-800 dark:text-green-300">
+          <strong>Security:</strong> Your API key is stored server-side only and never exposed to the browser.
+          The frontend only knows whether a key is configured or not.
         </p>
       </div>
     </div>

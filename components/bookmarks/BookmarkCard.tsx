@@ -303,7 +303,7 @@ export default function BookmarkCard({
                   {bookmark.preview.previewTitle}
                 </p>
               )}
-              {bookmark.preview.previewDescription && (
+              {bookmark.preview.previewDescription && !bookmark.description && (
                 <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
                   {bookmark.preview.previewDescription}
                 </p>
