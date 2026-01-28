@@ -178,14 +178,14 @@ export function deleteBookmarks(ids: string[]): void {
 export function updateBookmark(bookmark: Bookmark): Bookmark | null {
   const bookmarks = loadBookmarks();
   const updated = bookmarks.map((item) =>
-    item.id === bookmark.id ? bookmark : item
+    item.id === bookmark.id ? { ...bookmark, updatedAt: new Date().toISOString() } : item
   );
   const saved = saveBookmarks(updated);
 
   // Debounced checksum update (batches rapid operations)
   debouncedRecalculateChecksum();
 
-  return saved ? bookmark : null;
+  return saved ? { ...bookmark, updatedAt: new Date().toISOString() } : null;
 }
 
 export function setBookmarks(bookmarks: Bookmark[]): boolean {

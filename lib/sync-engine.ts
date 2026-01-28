@@ -5,6 +5,7 @@ export interface SyncResult {
   success: boolean;
   pushed: number;
   conflicts: { recordId: string; currentVersion: number }[];
+  results?: { recordId: string; version: number; updatedAt: string }[];
   error?: string;
 }
 
@@ -42,8 +43,8 @@ async function pushOperations(operations: SyncOperation[]): Promise<SyncResult> 
     throw new Error(`Push failed: ${response.statusText}`);
   }
 
-  await response.json();
-  return { success: true, pushed: operations.length, conflicts: [] };
+  const data = await response.json();
+  return { success: true, pushed: operations.length, conflicts: [], results: data.results };
 }
 
 async function pullRecords(cursor?: string, limit: number = 100): Promise<PullResult> {
@@ -68,7 +69,6 @@ async function pullRecords(cursor?: string, limit: number = 100): Promise<PullRe
 
 export async function syncPush(): Promise<SyncResult> {
   const outbox = getOutbox();
-  console.log('[e2e-sync] syncPush: outbox has', outbox.length, 'items');
   if (outbox.length === 0) {
     return { success: true, pushed: 0, conflicts: [] };
   }

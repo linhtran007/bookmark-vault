@@ -291,9 +291,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
       let result: SyncPushResult;
 
       if (syncMode === 'e2e') {
-        console.log('[e2e-sync] syncPush: starting encrypted push');
         const encResult = await encryptedPush();
-        console.log('[e2e-sync] syncPush: encrypted push result', encResult);
         result = {
           success: encResult.success,
           synced: encResult.pushed,
@@ -304,6 +302,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
             serverVersion: c.currentVersion,
           })),
           errors: encResult.error ? [encResult.error] : [],
+          results: encResult.results,
         };
       } else {
         result = await pushPlaintext();
@@ -487,14 +486,12 @@ export function useSyncEngine(): UseSyncEngineReturn {
       refreshPendingCount();
     } else if (syncMode === 'e2e' && vaultKey) {
       // E2E mode: encrypt and queue
-      console.log('[e2e-sync] queueBookmark called', { bookmarkId: bookmark.id, deleted });
       try {
         const { encryptForSync, markDeletedForSync } = await import('@/lib/encrypted-storage');
         
         if (deleted) {
           const result = await markDeletedForSync(bookmark.id, 'bookmark', vaultKey);
           if (result) {
-            console.log('[e2e-sync] markDeletedForSync result', result.recordId);
             queueEncryptedOperation({
               recordId: result.recordId,
               recordType: 'bookmark',
@@ -502,11 +499,9 @@ export function useSyncEngine(): UseSyncEngineReturn {
               ciphertext: result.ciphertext,
               deleted: true,
             });
-            console.log('[e2e-sync] Queued deleted bookmark to outbox');
           }
         } else {
           const result = await encryptForSync(bookmark, 'bookmark', vaultKey);
-          console.log('[e2e-sync] encryptForSync result', result.recordId);
           queueEncryptedOperation({
             recordId: result.recordId,
             recordType: 'bookmark',
@@ -514,11 +509,10 @@ export function useSyncEngine(): UseSyncEngineReturn {
             ciphertext: result.ciphertext,
             deleted: false,
           });
-          console.log('[e2e-sync] Queued encrypted bookmark to outbox');
         }
         refreshPendingCount();
       } catch (error) {
-        console.error('[e2e-sync] Failed to encrypt bookmark for sync:', error);
+        console.error('Failed to encrypt bookmark for sync:', error);
       }
     }
   }, [canSync, syncMode, refreshPendingCount, blockedDialogOpen, vaultKey]);
@@ -558,7 +552,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
         }
         refreshPendingCount();
       } catch (error) {
-        console.error('[e2e-sync] Failed to encrypt space for sync:', error);
+        console.error('Failed to encrypt space for sync:', error);
       }
     }
   }, [canSync, syncMode, refreshPendingCount, blockedDialogOpen, vaultKey]);
@@ -598,7 +592,7 @@ export function useSyncEngine(): UseSyncEngineReturn {
         }
         refreshPendingCount();
       } catch (error) {
-        console.error('[e2e-sync] Failed to encrypt pinned view for sync:', error);
+        console.error('Failed to encrypt pinned view for sync:', error);
       }
     }
   }, [canSync, syncMode, refreshPendingCount, blockedDialogOpen, vaultKey]);

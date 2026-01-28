@@ -187,13 +187,13 @@ export function useBookmarkForm(options?: {
       .filter((tag) => tag.length > 0);
 
      const bookmarkData = {
-       title: form.title,
-       url: form.url,
-       description: form.description || undefined,
-       tags: tagsArray,
-       color: form.color ? (form.color as BookmarkColor) : undefined,
-       spaceId: form.spaceId || resolveDefaultSpaceId(options?.defaultSpaceId),
-     };
+        title: form.title,
+        url: form.url,
+        description: form.description || undefined,
+        tags: tagsArray,
+        color: form.color ? (form.color as BookmarkColor) : undefined,
+        spaceId: form.spaceId || resolveDefaultSpaceId(options?.defaultSpaceId),
+      };
 
     const result = CreateBookmarkSchema.safeParse(bookmarkData);
 

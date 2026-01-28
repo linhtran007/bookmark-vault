@@ -23,16 +23,16 @@ interface ClientProvidersProps {
 
 export function ClientProviders({ children }: ClientProvidersProps) {
   return (
-    <BookmarksProvider>
-      <VaultInitializer>
-        <SyncProvider>
+    <VaultInitializer>
+      <SyncProvider>
+        <BookmarksProvider>
           <SpacesProvider>
             <PinnedViewsProvider>
               {children}
             </PinnedViewsProvider>
           </SpacesProvider>
-        </SyncProvider>
-      </VaultInitializer>
-    </BookmarksProvider>
+        </BookmarksProvider>
+      </SyncProvider>
+    </VaultInitializer>
   );
 }

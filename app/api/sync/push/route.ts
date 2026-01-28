@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Too many operations' }, { status: 400 });
     }
 
-    const results: { recordId: string; version: number }[] = [];
+    const results: { recordId: string; version: number; updatedAt: string }[] = [];
 
     for (const op of operations) {
       const { recordId, recordType = 'bookmark', ciphertext, deleted } = op;
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
            RETURNING id, version`,
           [userId, recordId, recordType, ciphertext, deleted]
         );
-        results.push({ recordId, version: inserted[0].version });
+        results.push({ recordId, version: inserted[0].version, updatedAt: new Date().toISOString() });
       } else {
         // Update existing record (last-write-wins)
         const updated = await query<UpdatedRow>(
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
            RETURNING version`,
           [ciphertext, deleted, existing[0].id]
         );
-        results.push({ recordId, version: updated[0].version });
+        results.push({ recordId, version: updated[0].version, updatedAt: new Date().toISOString() });
       }
     }
 

@@ -173,7 +173,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
 
   // Debounced auto-sync after queuing operations
   const triggerDebouncedSync = useCallback(() => {
-    console.log('[sync] triggerDebouncedSync called, canSync:', syncEngine.canSync, 'isOnline:', isOnline);
     if (!syncEngine.canSync || !isOnline) return;
 
     // Clear existing timeout
@@ -182,9 +181,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Schedule sync
-    console.log('[sync] Scheduling sync in', SYNC_DEBOUNCE_MS, 'ms');
     syncTimeoutRef.current = setTimeout(() => {
-      console.log('[sync] Executing debounced syncPush');
       syncEngine.syncPush().catch(console.error);
     }, SYNC_DEBOUNCE_MS);
   }, [syncEngine.canSync, isOnline, syncEngine.syncPush]);

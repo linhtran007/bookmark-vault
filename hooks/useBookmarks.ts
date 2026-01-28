@@ -272,6 +272,10 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
   // Sync context (optional - won't exist if outside SyncProvider)
   const syncContext = useSyncOptional();
   
+  // Use a ref to always have access to the latest syncContext
+  const syncContextRef = useRef(syncContext);
+  syncContextRef.current = syncContext;
+
   // Data refresh store - when refreshKey changes, reload from localStorage
   const { refreshKey } = useDataRefreshStore();
   const initialLoadDone = useRef(false);
@@ -279,10 +283,11 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
   // Queue sync operation helper - uses SyncProvider's queueBookmarkSync
   // which triggers debounced auto-sync
   const queueSync = useCallback((bookmark: Bookmark, deleted: boolean = false) => {
-    if (syncContext) {
-      syncContext.queueBookmarkSync(bookmark, deleted);
+    const currentSyncContext = syncContextRef.current;
+    if (currentSyncContext) {
+      currentSyncContext.queueBookmarkSync(bookmark, deleted);
     }
-  }, [syncContext]);
+  }, []); // Empty deps - ref handles updates
 
   // Initial load from localStorage
   useEffect(() => {
@@ -520,9 +525,18 @@ export function BookmarksProvider({ children }: { children: ReactNode }) {
         }
 
         const updated = updateInStorage(bookmark);
+
+        if (!updated) {
+          const errorMessage =
+            "Unable to update bookmark. Please check your browser storage settings.";
+          dispatch({ type: "UPDATE_BOOKMARK_ERROR", error: errorMessage });
+          toast.error(errorMessage);
+          return;
+        }
+
         const stored = getBookmarks().some((item) => item.id === bookmark.id);
 
-        if (!updated || !stored) {
+        if (!stored) {
           const errorMessage =
             "Unable to update bookmark. Please check your browser storage settings.";
           dispatch({ type: "UPDATE_BOOKMARK_ERROR", error: errorMessage });
