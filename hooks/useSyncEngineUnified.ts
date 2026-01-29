@@ -33,6 +33,7 @@ import {
 import { getBookmarks, setBookmarks, getStoredChecksumMeta, saveChecksumMeta, setSkipChecksumRecalculation, invalidateAllCaches, type ChecksumMeta } from '@/lib/storage';
 import { getSpaces, setSpaces } from '@/lib/spacesStorage';
 import { getPinnedViews, savePinnedViews } from '@/lib/pinnedViewsStorage';
+import { calculateLocalE2eChecksum, getE2eChecksumFromServer } from '@/lib/e2e-checksum';
 
 // Helper to update local _syncVersion and updatedAt after successful push
 function updateLocalSyncVersions(results: { recordId: string; version: number; updatedAt: string }[]): void {
@@ -213,44 +214,81 @@ export function useSyncEngine(): UseSyncEngineReturn {
       let records: PlaintextRecord[] = [];
 
        if (syncMode === 'e2e') {
-         // SECURITY: This code path only executes when vault is unlocked.
-         // canSync() at the top of this function returns false if vault is locked,
-         // preventing any E2E pull operations when the vault key is unavailable.
-         const pulled = await encryptedPull(() => {});
+          // SECURITY: This code path only executes when vault is unlocked.
+          // canSync() at the top of this function returns false if vault is locked,
+          // preventing any E2E pull operations when the vault key is unavailable.
+          console.log('[e2e-sync] Pull: calling encryptedPull...');
+          const pulled = await encryptedPull(() => {});
+          console.log(`[e2e-sync] Pull: received ${pulled.records.length} records from server, hasMore: ${pulled.hasMore}`);
 
-         // Store pulled ciphertext records in local cache for decryption.
-         // Note: these ciphertext records are server-format (single string).
-          const { mergePulledCiphertextRecords } = await import('@/lib/encrypted-storage');
-          mergePulledCiphertextRecords(
-            pulled.records
-              .filter((r) => r.ciphertext !== null)
-              .map((r) => ({
-                recordId: r.recordId,
-                recordType: r.recordType,
-                ciphertext: r.ciphertext as string,
-                version: r.version,
-                deleted: r.deleted,
-                updatedAt: r.updatedAt,
-              }))
-          );
-
-
-          if (vaultKey) {
-            try {
-              const { decryptAndApplyPulledE2eRecords } = await import('@/lib/decrypt-and-apply');
-              const { applied } = await decryptAndApplyPulledE2eRecords(vaultKey);
-              if (applied > 0) {
-                triggerRefresh();
-              }
-            } catch (error) {
-              const message = error instanceof Error ? error.message : 'Failed to decrypt pulled records';
-              console.error('[e2e-sync] decrypt/apply failed', error);
-              setState(prev => ({ ...prev, error: message }));
-              toast.error('Sync failed', { description: message });
-            }
+          if (pulled.records.length > 0) {
+            console.log('[e2e-sync] Pull: sample recordIds:', pulled.records.slice(0, 3).map(r => r.recordId));
           }
 
-       } else {
+          // Store pulled ciphertext records in local cache for decryption.
+          // Note: these ciphertext records are server-format (single string).
+           const { mergePulledCiphertextRecords, saveEncryptedRecord } = await import('@/lib/encrypted-storage');
+           const filteredRecords = pulled.records
+               .filter((r) => r.ciphertext !== null);
+           console.log(`[e2e-sync] Pull: ${filteredRecords.length} records with ciphertext`);
+
+           // Merge into pulled cache for decryption
+           mergePulledCiphertextRecords(
+             filteredRecords
+               .map((r) => ({
+                 recordId: r.recordId,
+                 recordType: r.recordType,
+                 ciphertext: r.ciphertext as string,
+                 version: r.version,
+                 deleted: r.deleted,
+                 updatedAt: r.updatedAt,
+               }))
+           );
+
+           // ALSO save directly to encrypted storage for checksum
+           // This ensures local encrypted storage matches server after pull
+           console.log('[e2e-sync] Pull: saving ciphertext to encrypted storage...');
+           for (const r of filteredRecords) {
+             saveEncryptedRecord({
+               recordId: r.recordId,
+               recordType: r.recordType,
+               ciphertext: r.ciphertext,
+               iv: '',
+               tag: '',
+               version: r.version,
+               deleted: r.deleted,
+               createdAt: r.updatedAt,
+               updatedAt: r.updatedAt,
+             });
+           }
+           console.log(`[e2e-sync] Pull: saved ${filteredRecords.length} records to encrypted storage`);
+
+           let appliedCount = 0;
+
+           if (vaultKey) {
+              try {
+                const { decryptAndApplyPulledE2eRecords } = await import('@/lib/decrypt-and-apply');
+                console.log('[e2e-sync] Pull: decrypting records...');
+                const result = await decryptAndApplyPulledE2eRecords(vaultKey);
+                appliedCount = result.applied;
+                console.log(`[e2e-sync] Pull: applied ${appliedCount} records`);
+                if (appliedCount > 0) {
+                  triggerRefresh();
+                  toast.success('Up to date from cloud');
+                }
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Failed to decrypt pulled records';
+                console.error('[e2e-sync] decrypt/apply failed', error);
+                setState(prev => ({ ...prev, error: message }));
+                toast.error('Sync failed', { description: message });
+              }
+            }
+
+            // Return applied count as array length for E2E mode
+            console.log(`[e2e-sync] Pull: appliedCount = ${appliedCount}`);
+            records = Array(appliedCount).fill({} as PlaintextRecord);
+
+         } else {
          const result = await pullAllPlaintext();
          if (result.error) throw new Error(result.error);
          records = result.records;
@@ -398,12 +436,44 @@ export function useSyncEngine(): UseSyncEngineReturn {
       return { pulled: 0, skipped: true };
     }
 
-    // For E2E mode, we cannot use plaintext checksum - just do a direct pull
+    // E2E mode: use updatedAt-based checksum optimization
     // The vault must be unlocked (checked by canSync) for security
     if (syncMode === 'e2e') {
-      const records = await syncPull();
-      // E2E pull handles decryption internally
-      return { pulled: records.length, skipped: false };
+      console.log('[e2e-sync] Starting metadata comparison...');
+      try {
+        const [localMeta, serverMeta] = await Promise.all([
+          calculateLocalE2eChecksum(),
+          getE2eChecksumFromServer(),
+        ]);
+
+        console.log(`[e2e-sync] Local: count=${localMeta?.count}, maxUpdatedAt=${localMeta?.maxUpdatedAt}`);
+        console.log(`[e2e-sync] Server: count=${serverMeta?.count}, maxUpdatedAt=${serverMeta?.maxUpdatedAt}`);
+
+        // Compare: skip if local count >= server count AND local maxUpdatedAt >= server maxUpdatedAt
+        const isInSync = localMeta && serverMeta &&
+          localMeta.count >= serverMeta.count &&
+          localMeta.maxUpdatedAt &&
+          serverMeta.maxUpdatedAt &&
+          localMeta.maxUpdatedAt >= serverMeta.maxUpdatedAt;
+
+        if (isInSync) {
+          console.log('[e2e-sync] Metadata matches - skipping pull (already in sync)');
+          return { pulled: 0, skipped: true };
+        }
+
+        console.log('[e2e-sync] Metadata differs - pulling');
+
+        const pullStartTime = performance.now();
+        const records = await syncPull();
+        const pullTime = performance.now() - pullStartTime;
+
+        console.log(`[e2e-sync] Pulled ${records.length} records in ${pullTime.toFixed(2)}ms`);
+        return { pulled: records.length, skipped: false };
+      } catch (error) {
+        console.error('[e2e-sync] Metadata comparison failed, falling back to pull:', error);
+        const records = await syncPull();
+        return { pulled: records.length, skipped: false };
+      }
     }
 
     // Plaintext mode: use checksum optimization

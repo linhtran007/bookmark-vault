@@ -272,6 +272,33 @@ export function clearPulledCiphertextRecords(): void {
   localStorage.removeItem(PULLED_CIPHERTEXT_KEY);
 }
 
+export function savePulledCiphertextToEncryptedStorage(): void {
+  if (typeof window === 'undefined') return;
+
+  const pulled = loadPulledCiphertextRecords();
+  if (pulled.length === 0) return;
+
+  console.log(`[encrypted-storage] Moving ${pulled.length} pulled ciphertext records to permanent storage`);
+
+  for (const record of pulled) {
+    const storedRecord: StoredEncryptedRecord = {
+      recordId: record.recordId,
+      recordType: record.recordType,
+      ciphertext: record.ciphertext,
+      iv: '',
+      tag: '',
+      version: record.version,
+      deleted: record.deleted,
+      createdAt: record.updatedAt,
+      updatedAt: record.updatedAt,
+    };
+    saveEncryptedRecord(storedRecord);
+  }
+
+  clearPulledCiphertextRecords();
+  console.log('[encrypted-storage] Moved pulled ciphertext to permanent storage');
+}
+
 export function hasEncryptedStorage(): boolean {
   if (typeof window === 'undefined') return false;
   const raw = localStorage.getItem(ENCRYPTED_STORAGE_KEY);
